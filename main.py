@@ -1,5 +1,6 @@
 from flask import Flask, send_file, request, render_template, redirect, url_for, flash, send_from_directory, abort, jsonify, session, make_response
 from werkzeug.serving import make_server
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import zipfile
 import io
@@ -19,10 +20,11 @@ import sqlite3
 import re
 import uuid
 import hashlib
+import json
+import secrets
 from markupsafe import Markup, escape
 
-app = Flask(__name__)
-app.secret_key = "segredo_qualquer"  # Necessário para flash
+app = Flask(__name__, static_folder=None)
 
 porta = 5678
 
@@ -49,6 +51,59 @@ def _data_dir_padrao():
 
 DATA_DIR = os.environ.get('FILESWIFT_DATA_DIR', _data_dir_padrao())
 os.makedirs(DATA_DIR, exist_ok=True)
+
+# --- Configuração persistente (senha de acesso, chave de sessão) ---
+# Guardada em DATA_DIR (mesma pasta gravável de fileswift.db etc.), então já
+# funciona automaticamente em qualquer forma de instalação, sem tocar nos
+# scripts de empacotamento.
+#
+# Para resetar a senha esquecida: apague o campo "senha_hash" (ou o arquivo
+# config.json inteiro) na pasta de dados do FileSwift. Na próxima requisição
+# o app volta ao estado de "configuração pendente" e pede uma senha nova.
+CONFIG_PATH = os.path.join(DATA_DIR, 'config.json')
+
+
+def carregar_config():
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            if config.get('secret_key'):
+                return config
+        except (json.JSONDecodeError, OSError):
+            pass
+    # Não existe ainda, ou está corrompido/sem secret_key: cria do zero.
+    # A secret_key precisa existir mesmo antes de haver senha configurada,
+    # já que o Flask precisa dela desde a própria tela de configuração inicial.
+    config = {'secret_key': secrets.token_hex(32)}
+    salvar_config(config)
+    return config
+
+
+def salvar_config(config):
+    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+        json.dump(config, f)
+    os.chmod(CONFIG_PATH, 0o600)
+
+
+CONFIG = carregar_config()
+app.secret_key = CONFIG['secret_key']
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+
+
+def senha_esta_configurada():
+    return bool(CONFIG.get('senha_hash'))
+
+
+def definir_senha(senha):
+    CONFIG['senha_hash'] = generate_password_hash(senha)
+    CONFIG['criado_em'] = datetime.now().isoformat()
+    salvar_config(CONFIG)
+
+
+def verificar_senha(senha):
+    return check_password_hash(CONFIG.get('senha_hash', ''), senha)
+
 
 MEDIA_FOLDER = os.path.join(DATA_DIR, 'static', 'download')
 UPLOAD_FOLDER = os.path.join(MEDIA_FOLDER, 'uploads')  # pasta padrão de upload
@@ -123,6 +178,35 @@ servidor_iniciado_em = None
 dispositivos_conectados = set()
 acessos_por_dia = defaultdict(int)
 ultimo_acesso_por_ip = {}
+
+# Rate limiting de tentativas de login (em memória, reinicia a cada boot —
+# suficiente para o modelo de ameaça doméstico, não precisa persistir).
+tentativas_login_por_ip = defaultdict(list)
+LOGIN_MAX_TENTATIVAS = 5
+LOGIN_JANELA = timedelta(minutes=10)
+
+
+def obter_ip_cliente(req):
+    ip_cliente = req.environ.get('HTTP_X_FORWARDED_FOR', req.environ.get('REMOTE_ADDR', 'unknown'))
+    if ',' in ip_cliente:
+        ip_cliente = ip_cliente.split(',')[0].strip()
+    return ip_cliente
+
+
+def ip_esta_bloqueado(ip):
+    agora = datetime.now()
+    tentativas = [t for t in tentativas_login_por_ip.get(ip, []) if agora - t < LOGIN_JANELA]
+    tentativas_login_por_ip[ip] = tentativas
+    return len(tentativas) >= LOGIN_MAX_TENTATIVAS
+
+
+def registrar_tentativa_falha(ip):
+    tentativas_login_por_ip[ip].append(datetime.now())
+
+
+def limpar_tentativas(ip):
+    tentativas_login_por_ip.pop(ip, None)
+
 
 def obter_nome_rede_wifi():
     """Obter nome da rede WiFi conectada"""
@@ -373,6 +457,12 @@ def upload(pasta):
 
     print("📄 Renderizando template de upload...")
     return render_template('upload.html', pasta=pasta)
+
+
+@app.route('/static/logo.png')
+def static_logo():
+    """Serve o logo (asset fixo do app, empacotado com o código — não dado do usuário)."""
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'logo.png')
 
 
 @app.route('/static/qrcode.png')
@@ -1036,11 +1126,119 @@ def registrar_mdns(ip_str):
 @app.before_request
 def before_request():
     """Registrar acesso antes de cada requisição"""
-    ip_cliente = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
-    # Pegar apenas o primeiro IP se houver múltiplos (proxy)
-    if ',' in ip_cliente:
-        ip_cliente = ip_cliente.split(',')[0].strip()
-    registrar_acesso(ip_cliente)
+    registrar_acesso(obter_ip_cliente(request))
+
+
+# Endpoints acessíveis sem estar logado: as próprias telas de login/configuração
+# inicial, e os dois assets fixos (logo e QR code) que elas precisam carregar.
+# Note que NÃO inclui o endpoint 'static' genérico do Flask — ele foi
+# desativado de propósito (static_folder=None) porque MEDIA_FOLDER mora dentro
+# de static/, e deixar o endpoint automático ligado exporia todos os arquivos
+# do usuário sem autenticação nenhuma.
+ENDPOINTS_ISENTOS = {'login', 'setup', 'static_logo', 'static_qrcode'}
+
+
+@app.before_request
+def exigir_autenticacao():
+    if request.endpoint in ENDPOINTS_ISENTOS or request.endpoint is None:
+        return
+
+    if not senha_esta_configurada():
+        if request.endpoint != 'setup':
+            return redirect(url_for('setup'))
+        return
+
+    if not session.get('autenticado'):
+        if request.path.startswith('/api/'):
+            return jsonify({'erro': 'nao_autenticado'}), 401
+        if request.endpoint != 'login':
+            return redirect(url_for('login', next=request.path))
+        return
+
+
+def _destino_pos_login(bruto):
+    """Só aceita caminhos internos (evita open-redirect via ?next=http://...)."""
+    if bruto and bruto.startswith('/') and not bruto.startswith('//'):
+        return bruto
+    return url_for('index')
+
+
+@app.route('/setup', methods=['GET', 'POST'])
+def setup():
+    if senha_esta_configurada():
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        senha = request.form.get('senha', '')
+        confirmacao = request.form.get('confirmacao', '')
+
+        if not senha or len(senha) < 4:
+            flash('A senha precisa ter pelo menos 4 caracteres.')
+            return redirect(url_for('setup'))
+        if senha != confirmacao:
+            flash('As senhas não coincidem.')
+            return redirect(url_for('setup'))
+
+        definir_senha(senha)
+        session['autenticado'] = True
+        session.permanent = True
+        flash('Senha definida com sucesso!')
+        return redirect(url_for('index'))
+
+    return render_template('login.html', modo='setup')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        ip_cliente = obter_ip_cliente(request)
+
+        if ip_esta_bloqueado(ip_cliente):
+            flash('Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.')
+            return redirect(url_for('login'))
+
+        senha = request.form.get('senha', '')
+        if verificar_senha(senha):
+            limpar_tentativas(ip_cliente)
+            session['autenticado'] = True
+            session.permanent = True
+            return redirect(_destino_pos_login(request.form.get('next')))
+
+        registrar_tentativa_falha(ip_cliente)
+        flash('Senha incorreta.')
+        return redirect(url_for('login', next=request.form.get('next', '')))
+
+    return render_template('login.html', modo='login', next=request.args.get('next', ''))
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+
+@app.route('/trocar_senha', methods=['GET', 'POST'])
+def trocar_senha():
+    if request.method == 'POST':
+        senha_atual = request.form.get('senha_atual', '')
+        nova_senha = request.form.get('senha', '')
+        confirmacao = request.form.get('confirmacao', '')
+
+        if not verificar_senha(senha_atual):
+            flash('Senha atual incorreta.')
+            return redirect(url_for('trocar_senha'))
+        if not nova_senha or len(nova_senha) < 4:
+            flash('A nova senha precisa ter pelo menos 4 caracteres.')
+            return redirect(url_for('trocar_senha'))
+        if nova_senha != confirmacao:
+            flash('As senhas não coincidem.')
+            return redirect(url_for('trocar_senha'))
+
+        definir_senha(nova_senha)
+        flash('Senha alterada com sucesso!')
+        return redirect(url_for('index'))
+
+    return render_template('login.html', modo='trocar_senha')
 
 def monitorar_ip_e_registrar():
     global ip_atual

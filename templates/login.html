@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <title>
+    {% if modo == 'setup' %}Configurar FileSwift
+    {% elif modo == 'trocar_senha' %}Trocar senha
+    {% else %}Entrar no FileSwift
+    {% endif %}
+  </title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      color: #fff;
+      background:
+        radial-gradient(ellipse at top, #1e3a8a 0%, #1e1b4b 50%, #0f0f23 100%),
+        radial-gradient(ellipse at bottom, #312e81 0%, #1e1b4b 50%, #0f0f23 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 380px;
+      background: rgba(26, 32, 44, 0.75);
+      border: 1px solid #4a5568;
+      border-radius: 14px;
+      padding: 32px 28px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+    .logo {
+      display: block;
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      border-radius: 14px;
+      object-fit: contain;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    h1 {
+      font-size: 1.15rem;
+      margin: 0 0 6px;
+      text-align: center;
+      color: #90cdf4;
+    }
+    .subtitulo {
+      font-size: 0.85rem;
+      color: #a0aec0;
+      text-align: center;
+      margin: 0 0 20px;
+    }
+    .flash {
+      background: rgba(252, 129, 129, 0.15);
+      border: 1px solid #fc8181;
+      color: #feb2b2;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #cbd5e0;
+      margin-bottom: 6px;
+    }
+    input[type="password"] {
+      width: 100%;
+      background: rgba(45, 55, 72, 0.8);
+      border: 1px solid #4a5568;
+      color: #fff;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      box-sizing: border-box;
+      margin-bottom: 14px;
+    }
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #63b3ed;
+      box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.15);
+    }
+    .btn-entrar {
+      width: 100%;
+      margin-top: 6px;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .btn-entrar:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .voltar {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      color: #a0aec0;
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    .voltar:hover {
+      color: #cbd5e0;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="/static/logo.png" alt="FileSwift" class="logo">
+
+    {% if modo == 'setup' %}
+      <h1>Configurar o FileSwift</h1>
+      <p class="subtitulo">Defina a senha de acesso para este aparelho. Quem não tiver essa senha não consegue ver nem mexer nos seus arquivos.</p>
+    {% elif modo == 'trocar_senha' %}
+      <h1>Trocar senha</h1>
+      <p class="subtitulo">A senha vale pra todos os dispositivos na sua rede.</p>
+    {% else %}
+      <h1>FileSwift</h1>
+      <p class="subtitulo">Digite a senha de acesso.</p>
+    {% endif %}
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="flash">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% if modo == 'setup' %}
+      <form method="POST">
+        <label for="senha">Nova senha</label>
+        <input type="password" id="senha" name="senha" minlength="4" required autofocus>
+        <label for="confirmacao">Confirmar senha</label>
+        <input type="password" id="confirmacao" name="confirmacao" minlength="4" required>
+        <button type="submit" class="btn-entrar"><i class="fa-solid fa-lock"></i> Definir senha</button>
+      </form>
+    {% elif modo == 'trocar_senha' %}
+      <form method="POST">
+        <label for="senha_atual">Senha atual</label>
+        <input type="password" id="senha_atual" name="senha_atual" required autofocus>
+        <label for="senha">Nova senha</label>
+        <input type="password" id="senha" name="senha" minlength="4" required>
+        <label for="confirmacao">Confirmar nova senha</label>
+        <input type="password" id="confirmacao" name="confirmacao" minlength="4" required>
+        <button type="submit" class="btn-entrar"><i class="fa-solid fa-key"></i> Trocar senha</button>
+      </form>
+      <a href="{{ url_for('index') }}" class="voltar"><i class="fa-solid fa-arrow-left"></i> Voltar</a>
+    {% else %}
+      <form method="POST">
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" name="senha" required autofocus>
+        <button type="submit" class="btn-entrar"><i class="fa-solid fa-right-to-bracket"></i> Entrar</button>
+      </form>
+    {% endif %}
+  </div>
+</body>
+</html>

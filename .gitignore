@@ -8,6 +8,7 @@ fileswift.db
 static/download/
 static/qrcode.png
 textos_anexos/
+config.json
 
 # AppImage (formato descontinuado neste projeto — mantido só como histórico local)
 FileSwift.AppDir/
