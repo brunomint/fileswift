@@ -26,3 +26,4 @@ windows/Output/
 # Diversos
 .DS_Store
 Thumbs.db
+.claude/
