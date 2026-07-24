@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <title>{{ texto['titulo'] }}</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      color: #fff;
+      background:
+        radial-gradient(ellipse at top, #1e3a8a 0%, #1e1b4b 50%, #0f0f23 100%),
+        radial-gradient(ellipse at bottom, #312e81 0%, #1e1b4b 50%, #0f0f23 100%);
+      min-height: 100vh;
+    }
+    .topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid #4a5568;
+      background: rgba(26, 32, 44, 0.6);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .topo h1 {
+      font-size: 1.1rem;
+      margin: 0;
+      color: #90cdf4;
+      word-break: break-word;
+    }
+    .acoes {
+      display: flex;
+      gap: 10px;
+    }
+    .voltar, .btn-copiar, .btn-apagar {
+      text-decoration: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+    .voltar {
+      background: rgba(74, 85, 104, 0.5);
+    }
+    .voltar:hover {
+      background: rgba(74, 85, 104, 0.8);
+    }
+    .btn-copiar {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn-copiar:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .btn-apagar {
+      background: linear-gradient(135deg, #fc8181 0%, #e53e3e 100%);
+    }
+    .btn-apagar:hover {
+      box-shadow: 0 4px 12px rgba(229, 62, 62, 0.4);
+    }
+    .conteudo {
+      padding: 24px 32px;
+      max-width: 750px;
+      margin: 0 auto;
+    }
+    .caixa-texto {
+      background: #2d3748;
+      border-radius: 10px;
+      padding: 24px;
+      font-family: monospace;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    .data {
+      font-size: 0.8rem;
+      color: #a0aec0;
+      margin-bottom: 12px;
+    }
+    .destaque {
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .destaque-email {
+      background: rgba(99, 179, 237, 0.25);
+      color: #90cdf4;
+    }
+    .destaque-cpf {
+      background: rgba(246, 173, 85, 0.25);
+      color: #f6ad55;
+    }
+    .destaque-cep {
+      background: rgba(159, 122, 234, 0.25);
+      color: #b794f4;
+    }
+    .destaque-valor {
+      background: rgba(72, 187, 120, 0.25);
+      color: #68d391;
+    }
+    .anexos-lista {
+      margin-top: 20px;
+    }
+    .anexos-lista h3 {
+      font-size: 0.9rem;
+      color: #cbd5e0;
+      margin: 0 0 10px;
+    }
+    .anexo-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #2d3748;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+    }
+    .anexo-item a {
+      color: #90cdf4;
+      text-decoration: none;
+      font-size: 0.9rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .anexo-item a:hover {
+      text-decoration: underline;
+    }
+    .anexo-item form {
+      margin: 0;
+    }
+    .anexo-acoes {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .anexo-acoes > a {
+      color: #90cdf4;
+      padding: 4px 8px;
+      font-size: 0.9rem;
+    }
+    .anexo-item button {
+      background: none;
+      border: none;
+      color: #fc8181;
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 4px 8px;
+    }
+    .anexo-add-form {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .anexo-dropzone {
+      flex: 1;
+      min-width: 220px;
+      padding: 14px;
+      background: rgba(45, 55, 72, 0.5);
+      border: 2px dashed #4a5568;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .anexo-dropzone:hover,
+    .anexo-dropzone.arrastando {
+      border-color: #63b3ed;
+      background: rgba(99, 179, 237, 0.1);
+    }
+    .anexo-dropzone span {
+      font-size: 0.85rem;
+      color: #cbd5e0;
+      pointer-events: none;
+    }
+    .anexo-add-form input[type="file"] {
+      display: none;
+    }
+    .anexo-add-form button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .aviso-anexos {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(72, 187, 120, 0.15);
+      border: 1px solid #48bb78;
+      color: #9ae6b4;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="topo">
+    <h1><i class="fa-solid fa-note-sticky"></i> {{ texto['titulo'] }}</h1>
+    <div class="acoes">
+      <a href="{{ url_for('textos_lista') }}" class="voltar"><i class="fa-solid fa-arrow-left"></i> Voltar</a>
+      <button type="button" class="btn-copiar" onclick="copiarTexto()"><i class="fa-regular fa-copy"></i> Copiar</button>
+      <form method="POST" action="{{ url_for('textos_apagar', id=texto['id']) }}" onsubmit="return confirm('Tem certeza que deseja apagar este texto?');">
+        <button type="submit" class="btn-apagar"><i class="fa-solid fa-trash"></i> Apagar</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="conteudo">
+    <div class="data"><i class="fa-regular fa-clock"></i> {{ texto['criado_em'] }}</div>
+    <div class="caixa-texto">{{ conteudo_formatado }}</div>
+
+    <div class="anexos-lista">
+      <div id="avisoAnexos" class="aviso-anexos">
+        <i class="fa-solid fa-arrows-rotate"></i> <span id="avisoAnexosTexto"></span>
+      </div>
+
+      <div id="anexosItensContainer">
+        {% if anexos %}
+          <h3><i class="fa-solid fa-paperclip"></i> Anexos</h3>
+          {% for anexo in anexos %}
+            <div class="anexo-item">
+              <a href="{{ url_for('textos_anexo_ver', anexo_id=anexo['id']) }}" target="_blank">
+                <i class="fa-solid fa-file-pdf"></i> {{ anexo['nome_original'] }}
+              </a>
+              <div class="anexo-acoes">
+                <a href="{{ url_for('textos_anexo_download', anexo_id=anexo['id']) }}" title="Baixar"><i class="fa-solid fa-download"></i></a>
+                <form method="POST" action="{{ url_for('textos_anexo_apagar', anexo_id=anexo['id']) }}" onsubmit="return confirm('Apagar este anexo?');">
+                  <button type="submit" title="Apagar anexo"><i class="fa-solid fa-xmark"></i></button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      <form method="POST" action="{{ url_for('textos_anexo_add', id=texto['id']) }}" enctype="multipart/form-data" class="anexo-add-form">
+        <div class="anexo-dropzone" id="anexoDropzone">
+          <span id="anexoDropzoneTexto"><i class="fa-solid fa-paperclip"></i> Clique aqui ou arraste os PDFs para esta área</span>
+          <input type="file" id="anexos" name="anexos" accept=".pdf,application/pdf" multiple>
+        </div>
+        <button type="submit"><i class="fa-solid fa-upload"></i> Enviar</button>
+      </form>
+    </div>
+  </div>
+
+  <textarea id="textoOriginal" style="position:absolute; left:-9999px;">{{ texto['conteudo'] }}</textarea>
+
+  <script>
+    (function () {
+      const dropzone = document.getElementById('anexoDropzone');
+      const input = document.getElementById('anexos');
+      const texto = document.getElementById('anexoDropzoneTexto');
+
+      function atualizarTexto() {
+        if (input.files.length === 0) {
+          texto.innerHTML = '<i class="fa-solid fa-paperclip"></i> Clique aqui ou arraste os PDFs para esta área';
+        } else if (input.files.length === 1) {
+          texto.textContent = input.files[0].name;
+        } else {
+          texto.textContent = input.files.length + ' arquivos selecionados';
+        }
+      }
+
+      dropzone.addEventListener('click', function () {
+        input.click();
+      });
+
+      input.addEventListener('change', atualizarTexto);
+
+      dropzone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dropzone.classList.add('arrastando');
+      });
+
+      dropzone.addEventListener('dragleave', function () {
+        dropzone.classList.remove('arrastando');
+      });
+
+      dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('arrastando');
+        if (e.dataTransfer.files.length > 0) {
+          input.files = e.dataTransfer.files;
+          atualizarTexto();
+        }
+      });
+    })();
+
+    function copiarTexto() {
+      const el = document.getElementById('textoOriginal');
+      el.style.display = 'block';
+      el.select();
+      document.execCommand('copy');
+      el.style.display = 'none';
+      alert('Texto copiado!');
+    }
+  </script>
+
+  <script>
+    // Atualização automática dos anexos quando enviados/apagados por outro dispositivo
+    const URL_API_ANEXOS = '{{ url_for("api_textos_anexos", id=texto["id"]) }}';
+    const URL_TEXTOS_LISTA = '{{ url_for("textos_lista") }}';
+    let ultimosAnexosIds = null;
+
+    function escapeHtmlAnexo(s) {
+      const div = document.createElement('div');
+      div.textContent = s == null ? '' : s;
+      return div.innerHTML;
+    }
+
+    function renderAnexos(anexos) {
+      const container = document.getElementById('anexosItensContainer');
+      if (!container) return;
+
+      if (anexos.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      const itens = anexos.map(function (a) {
+        return '<div class="anexo-item">' +
+          '<a href="/textos/anexo/' + a.id + '" target="_blank">' +
+          '<i class="fa-solid fa-file-pdf"></i> ' + escapeHtmlAnexo(a.nome_original) +
+          '</a>' +
+          '<div class="anexo-acoes">' +
+          '<a href="/textos/anexo/' + a.id + '/download" title="Baixar"><i class="fa-solid fa-download"></i></a>' +
+          '<form method="POST" action="/textos/anexo/' + a.id + '/apagar" onsubmit="return confirm(\'Apagar este anexo?\');">' +
+          '<button type="submit" title="Apagar anexo"><i class="fa-solid fa-xmark"></i></button>' +
+          '</form>' +
+          '</div>' +
+          '</div>';
+      }).join('');
+
+      container.innerHTML = '<h3><i class="fa-solid fa-paperclip"></i> Anexos</h3>' + itens;
+    }
+
+    function mostrarAvisoAnexos(texto) {
+      const aviso = document.getElementById('avisoAnexos');
+      const span = document.getElementById('avisoAnexosTexto');
+      if (!aviso || !span) return;
+      span.textContent = texto;
+      aviso.style.display = 'flex';
+      clearTimeout(mostrarAvisoAnexos._timer);
+      mostrarAvisoAnexos._timer = setTimeout(function () { aviso.style.display = 'none'; }, 4000);
+    }
+
+    function verificarAtualizacaoAnexos() {
+      fetch(URL_API_ANEXOS)
+        .then(function (r) {
+          if (r.status === 404) {
+            // O texto foi apagado em outro dispositivo
+            window.location.href = URL_TEXTOS_LISTA;
+            return null;
+          }
+          return r.json();
+        })
+        .then(function (anexos) {
+          if (anexos === null) return;
+
+          const idsAtuais = anexos.map(function (a) { return a.id; }).join(',');
+
+          if (ultimosAnexosIds === null) {
+            ultimosAnexosIds = idsAtuais;
+            return;
+          }
+          if (idsAtuais === ultimosAnexosIds) return;
+
+          const novosQueChegaram = anexos.some(function (a) {
+            return !ultimosAnexosIds.split(',').includes(String(a.id));
+          });
+
+          ultimosAnexosIds = idsAtuais;
+          renderAnexos(anexos);
+          mostrarAvisoAnexos(novosQueChegaram ? 'Novo anexo recebido' : 'Anexo removido');
+        })
+        .catch(function () {});
+    }
+
+    verificarAtualizacaoAnexos();
+    setInterval(verificarAtualizacaoAnexos, 3000);
+  </script>
+</body>
+</html>

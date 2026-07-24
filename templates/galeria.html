@@ -1,0 +1,2877 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link rel="shortcut icon" type="image/png" href="/static/logo.png">
+  <link rel="apple-touch-icon" type="image/png" href="/static/logo.png">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+
+  <title>Galeria{% if pasta %} - {{ pasta }}{% endif %}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: 
+        radial-gradient(ellipse at top, #1e3a8a 0%, #1e1b4b 50%, #0f0f23 100%),
+        radial-gradient(ellipse at bottom, #312e81 0%, #1e1b4b 50%, #0f0f23 100%);
+      font-family: 'Roboto', sans-serif;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    .titulo {
+  display: block;
+  margin: 2rem auto 1rem;
+  padding: 0.6rem 1rem;
+  max-width: 90%;
+  text-align: left;
+  margin-top: 50px;
+
+
+  font-family: monospace;
+  font-size: 1rem;
+  color: #333;
+
+  background-color: #f5f5f5;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+    .subtitulo {
+      margin-left: 2rem;
+      font-size: 1.5rem;
+      color: #f1f1f1;
+      padding-left: 14px;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .subtitulo::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.15em;
+      bottom: 0.15em;
+      width: 4px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+      padding: 0 2rem 2rem;
+    }
+
+    /* Ícones de pasta - harmonizados com a paleta azul/roxo */
+    .folder-icon {
+      color: #90cdf4; /* azul claro coerente com o tema */
+      font-size: clamp(3rem, 7vw, 4.5rem); /* responsivo - ligeiramente maior */
+      transition: color 0.2s ease, text-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    a:hover .folder-icon {
+      color: #63b3ed; /* realce no hover */
+      text-shadow: 0 2px 10px rgba(99, 179, 237, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .card {
+      background-color: #413a3a;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      transition: transform 0.2s;
+      position: relative;
+      z-index: 1;
+      height: auto;
+      min-height: fit-content;
+      color: #fff; /* Garantir texto branco nos cards */
+    }
+
+    .card:hover {
+      transform: scale(1.02);
+    }
+
+    .card p, .card div, .card span {
+      color: #fff !important; /* Forçar texto branco em todos os elementos do card */
+    }
+
+    .card a {
+      color: #fff !important; /* Forçar links brancos nos cards */
+    }
+
+    /* Estilos mais específicos para garantir texto branco */
+    .card a[target="_blank"] {
+      color: #ffffff !important;
+    }
+
+    .card div a {
+      color: #ffffff !important;
+    }
+
+    section .card a {
+      color: #ffffff !important;
+    }
+
+    img, video {
+      width: 100%;
+      display: block;
+    }
+
+    a {
+      color: #ff4444;
+      text-decoration: none;
+    }
+
+    /* Sobrescrever TODOS os links dentro de cards */
+    .card * {
+      color: #ffffff !important;
+    }
+
+    .card a, .card a:visited, .card a:hover, .card a:active {
+      color: #ffffff !important;
+    }
+
+    #lightbox {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 9999;
+    }
+
+    #lightbox.hidden {
+      display: none;
+    }
+
+    #lightbox img {
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+    }
+
+    #closeBtn, #prevBtn, #nextBtn {
+      position: absolute;
+      color: white;
+      font-size: 2.5rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    a[download]:hover {
+  background-color: #0056b3 !important;
+  box-shadow: 0 4px 10px rgba(0, 86, 179, 0.6) !important;
+  color: white !important;
+}
+
+#closeBtn { 
+  top: 20px; 
+  right: 30px; 
+}
+
+#prevBtn { 
+  top: 50%; 
+  left: 30px; 
+  transform: translateY(-50%); 
+}
+
+#nextBtn { 
+  top: 50%; 
+  right: 30px; 
+  transform: translateY(-50%); 
+}
+
+
+.sidebar {
+  height: 100vh;
+  width: 250px;
+  background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+  color: white;
+  padding: 0;
+  box-sizing: border-box;
+  position: fixed;
+  left: 0;
+  top: 0;
+  overflow-y: auto;
+  border-right: 1px solid #4a5568;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: #4a5568 #1a202c;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: #1a202c;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #63b3ed;
+}
+
+/* Seções do sidebar - padding reduzido */
+.sidebar-section {
+  padding: 10px 14px; /* Reduzido de 12px para 10px */
+  border-bottom: 1px solid rgba(74, 85, 104, 0.3);
+  flex-shrink: 0; /* Não encolher as seções */
+}
+
+.aviso-galeria-toast {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(45, 55, 72, 0.95);
+  border: 1px solid #48bb78;
+  color: #9ae6b4;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+}
+
+.btn-textos-destaque {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f6ad55 0%, #ed8936 100%);
+  color: #1a202c;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(237, 137, 54, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-textos-destaque i {
+  font-size: 16px;
+}
+
+.btn-textos-destaque:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(237, 137, 54, 0.6);
+}
+
+.badge-textos-novos {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #fc8181;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px rgba(26, 32, 44, 0.6);
+}
+
+.btn-textos-destaque.tem-novo {
+  animation: pulso-textos-novo 1.6s ease-in-out infinite;
+}
+
+@keyframes pulso-textos-novo {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(237, 137, 54, 0.45);
+  }
+  50% {
+    box-shadow: 0 2px 8px rgba(237, 137, 54, 0.45), 0 0 0 5px rgba(252, 129, 129, 0.3);
+  }
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+  flex-grow: 1; /* A última seção pode crescer se necessário */
+}
+
+.sidebar-header {
+  padding: 14px 18px; /* Reduzido de 16px para 14px */
+  text-align: center;
+  border-bottom: 1px solid rgba(74, 85, 104, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.sidebar h1 {
+  font-size: 16px; /* Reduzido de 18px */
+  margin: 0;
+  color: #63b3ed;
+  font-weight: 600;
+}
+
+.sidebar h2 {
+  font-size: 14px; /* Reduzido de 16px */
+  margin: 0 0 10px 0; /* Reduzido de 16px para 10px */
+  color: #63b3ed;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px; /* Reduzido de 8px */
+}
+
+.sidebar h2 i {
+  font-size: 16px; /* Reduzido de 18px */
+}
+
+  .sidebar form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .sidebar input[type="file"] {
+    margin-bottom: 10px; /* Corrigido de 12px para 10px */
+  }
+
+  .sidebar input[type="text"] {
+    background: rgba(45, 55, 72, 0.8);
+    border: 1px solid #4a5568;
+    color: white;
+    padding: 8px 10px; /* Reduzido de 12px */
+    border-radius: 6px; /* Reduzido de 8px */
+    margin-bottom: 8px; /* Reduzido de 12px */
+    font-size: 13px; /* Reduzido de 14px */
+    transition: all 0.3s ease;
+  }
+
+  .sidebar input[type="text"]:focus {
+    outline: none;
+    border-color: #63b3ed;
+    box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.1);
+  }
+
+  .sidebar button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 8px 12px; /* Reduzido de 12px 16px */
+    border-radius: 6px; /* Reduzido de 8px */
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px; /* Reduzido de 14px */
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebar button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+.sidebar ul {
+  margin: 10px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sidebar li {
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 85, 85, 0.1);
+  border-radius: 6px;
+  border-left: 3px solid #ff5555;
+}
+
+.sidebar a {
+  color: #90cdf4;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.sidebar a:hover {
+  color: #63b3ed;
+}
+
+.qrcode-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: 8px 0; /* Reduzido de 16px */
+}
+
+.qrcode-container img {
+  width: 120px; /* Aumentado de 100px para 120px */
+  height: 120px; /* Aumentado de 100px para 120px */
+  border-radius: 8px; /* Reduzido de 12px */
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.qrcode-container img:hover {
+  transform: scale(1.05);
+}
+
+#dropZone {
+  border: 2px dashed #4a5568 !important;
+  border-radius: 8px !important; /* Reduzido de 12px */
+  padding: 16px !important; /* Reduzido de 24px */
+  text-align: center !important;
+  margin-bottom: 12px !important; /* Reduzido de 20px */
+  transition: all 0.3s ease !important;
+  background: rgba(74, 85, 104, 0.1) !important;
+}
+
+#dropZone:hover {
+  border-color: #63b3ed !important;
+  background: rgba(99, 179, 237, 0.1) !important;
+}
+
+#dropZone.dragover {
+  border-color: #667eea !important;
+  background: rgba(102, 126, 234, 0.2) !important;
+}
+
+  /* Barra de navegação fixa no topo */
+  .top-bar {
+    position: fixed;
+    top: 0;
+    left: 250px;
+    right: 0;
+    background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+    border-bottom: 1px solid #4a5568;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    padding: 12px 20px;
+    transition: left 0.3s ease;
+  }
+
+  /* Breadcrumbs dentro da barra fixa */
+  .breadcrumbs {
+    margin: 0;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 12px;
+  }
+
+  /* Barra de busca fixa */
+  .search-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .search-bar input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    background: rgba(45, 55, 72, 0.8);
+    color: white;
+    font-size: 14px;
+  }
+
+  .search-bar input:focus {
+    outline: none;
+    border-color: #63b3ed;
+    box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.1);
+  }
+
+  .search-bar button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+  }
+
+  .search-bar button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  .filter-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .filter-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 15px;
+    background: #4a5568;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+  }
+
+  .filter-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .filter-btn:hover {
+    background: #63b3ed;
+  }
+
+  /* Conteúdo da página, afastado do menu fixo e barra superior */
+  .main-content {
+    margin-left: 270px;
+    margin-top: 140px; /* Espaço para a barra fixa */
+    padding: 20px;
+    min-height: 100vh;
+    background: 
+      radial-gradient(ellipse at top, #1e3a8a 0%, #1e1b4b 50%, #0f0f23 100%),
+      radial-gradient(ellipse at bottom, #312e81 0%, #1e1b4b 50%, #0f0f23 100%);
+    position: relative;
+    overflow: hidden;
+    transition: margin-left 0.3s ease;
+  }
+
+  /* Botão hamburger para mobile */
+  .hamburger {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1001;
+    background: rgba(45, 55, 72, 0.9);
+    border: none;
+    color: white;
+    font-size: 24px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+  }
+
+  .hamburger:hover {
+    background: rgba(99, 179, 237, 0.8);
+  }
+
+  /* Botão hamburger para menu superior direito */
+  .hamburger-menu {
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1001;
+    background: rgba(45, 55, 72, 0.9);
+    border: none;
+    color: white;
+    font-size: 24px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+  }
+
+  .hamburger-menu:hover {
+    background: rgba(99, 179, 237, 0.8);
+  }
+
+  /* Menu dropdown para busca e filtros */
+  .top-menu-dropdown {
+    display: none;
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    background: rgba(45, 55, 72, 0.95);
+    border: 1px solid #4a5568;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    min-width: 300px;
+    max-width: 90vw;
+    padding: 20px;
+  }
+
+  .top-menu-dropdown.active {
+    display: block;
+  }
+
+  /* Estrelas animadas */
+  .main-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+      radial-gradient(2px 2px at 20px 30px, #eee, transparent),
+      radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+      radial-gradient(1px 1px at 90px 40px, #fff, transparent),
+      radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.6), transparent),
+      radial-gradient(2px 2px at 160px 30px, #fff, transparent);
+    background-repeat: repeat;
+    background-size: 200px 100px;
+    animation: sparkle 20s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .main-content > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @keyframes sparkle {
+    from { transform: translateX(0); }
+    to { transform: translateX(200px); }
+  }
+
+  /* Media Queries para Mobile */
+  @media (max-width: 768px) {
+    .hamburger {
+      display: block;
+    }
+
+    .hamburger-menu {
+      display: block;
+    }
+
+    .sidebar {
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      z-index: 1000;
+      /* 100vh no celular não considera a barra de endereço do navegador,
+         cortando a parte de baixo do menu. dvh acompanha o viewport real. */
+      height: 100vh;
+      height: 100dvh;
+      max-height: 100dvh;
+      -webkit-overflow-scrolling: touch;
+      overflow-y: scroll;
+      touch-action: pan-y;
+      overscroll-behavior: contain;
+    }
+
+    .sidebar.active {
+      transform: translateX(0);
+    }
+
+    .sidebar-section:last-child {
+      padding-bottom: 24px;
+    }
+
+    .main-content {
+      margin-left: 0;
+      margin-top: 20px;
+      padding: 15px;
+    }
+
+    .top-bar {
+      display: none;
+    }
+
+    .grid {
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .main-content {
+      padding: 10px;
+      margin-top: 70px;
+    }
+
+    .grid {
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .hamburger {
+      top: 15px;
+      left: 15px;
+      padding: 10px;
+      font-size: 20px;
+    }
+
+    .top-bar {
+      padding: 10px 15px 10px 60px;
+      font-size: 14px;
+    }
+
+    /* Botões maiores para toque */
+    .menu-btn {
+      padding: 12px;
+      font-size: 20px;
+    }
+
+    .btn-primary, .btn-secondary {
+      padding: 12px 20px;
+      font-size: 16px;
+    }
+  }
+
+  * {
+  box-sizing: border-box;
+}
+
+
+
+  
+
+
+  .menu-container {
+  position: absolute;
+  top: 16px;
+  right: 12px;
+  z-index: 900;
+}
+
+.menu-btn {
+  background-color: rgba(0, 0, 0, 0.7); /* Fundo mais escuro para melhor contraste */
+  border: none;
+  font-size: 1.1rem; /* Diminuído para ficar mais discreto */
+  cursor: pointer;
+  color: white;
+  border-radius: 50%; /* Deixa redondinho */
+  width: 24px; /* Diminuído para ficar mais discreto */
+  height: 24px; /* Diminuído para ficar mais discreto */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  transition: all 0.3s ease;
+}
+
+.menu-btn:hover {
+  background-color: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1); /* Efeito de hover mais visível */
+}
+
+.menu-btn:active {
+  transform: scale(0.95);
+}
+
+.menu-content {
+  display: none;
+  position: absolute;
+  right: -10px;
+  top: 4px; /* Alterado para subir mais um pouco */
+  background: #1a202c;
+  color: #e2e8f0;
+  border: 1px solid #4a5568;
+  border-radius: 6px;
+  padding: 2px;
+  min-width: 100px !important;
+  max-width: 150px !important;
+  animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: visible;
+  white-space: nowrap;
+  z-index: 1000 !important;
+  font-size: 11px;
+}
+
+/* Ajuste específico para menus em cards de vídeo */
+.card video + div + .menu-container .menu-content {
+  right: -20px; /* Mais afastado da borda */
+  top: 4px; /* Posição ajustada para vídeos */
+}
+
+/* Ajuste específico para menus em cards de documentos */
+.card .menu-container .menu-content {
+  right: -30px; /* Mais afastado da borda para não ser cortado */
+  top: 10px; /* Subido mais um pouco para ficar ainda mais próximo do botão */
+  z-index: 1000; /* Z-index mais alto para ficar sobre outros elementos */
+}
+
+/* Ajuste para menus que podem sair da tela */
+.menu-content {
+  transform-origin: top right;
+}
+
+/* Media query para telas menores - menu à esquerda se necessário */
+@media (max-width: 768px) {
+  .menu-content {
+    right: auto;
+    left: -160px;
+    transform-origin: top left;
+    min-width: 200px;
+  }
+}
+
+/* Ajustes adicionais para menus que saem da tela */
+@media (max-width: 480px) {
+  .menu-content {
+    left: -140px;
+    min-width: 170px;
+    font-size: 13px;
+  }
+  
+  .menu-content a,
+  .menu-content button {
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+  }
+  
+  /* Ajuste para documentos em telas pequenas */
+  .card .menu-container .menu-content {
+    left: -150px;
+    right: auto;
+  }
+}
+
+/* Garantir que os cards não cortem o menu */
+.card {
+  overflow: visible !important;
+}
+
+/* Ajuste específico para grid de documentos */
+.grid .card {
+  position: relative;
+  overflow: visible;
+}
+
+/* Cards de imagens e vídeos com altura flexível */
+.grid .card {
+  height: auto;
+  min-height: fit-content;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid .card img,
+.grid .card video {
+  flex-shrink: 0;
+  object-fit: cover;
+  height: auto;
+  max-height: 300px;
+}
+
+/* Título dos cards com altura flexível */
+.grid .card > div:last-child {
+  flex-grow: 1;
+  display: flex;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+}
+
+/* Controle de texto para nomes de documentos */
+.card a {
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  hyphens: auto;
+  max-height: 4em; /* Limita a altura para aproximadamente 3 linhas */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3; /* Standard property for compatibility */
+  -webkit-box-orient: vertical;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-15px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Efeito glassmorphism mais sutil */
+.menu-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  z-index: -1;
+}
+
+.menu-content a,
+.menu-content button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  color: #e2e8f0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  margin: 1px;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.menu-content a:hover,
+.menu-content button:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transform: translateX(2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.menu-content i {
+  width: 12px;
+  text-align: center;
+  opacity: 0.8;
+  font-size: 11px;
+}
+
+.apagar-btn {
+  color: #e53e3e !important;
+}
+
+.apagar-btn:hover {
+  background: linear-gradient(135deg, #fc8181 0%, #e53e3e 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3) !important;
+}
+
+.mover-btn {
+  color: #3182ce !important;
+}
+
+.mover-btn:hover {
+  background: linear-gradient(135deg, #63b3ed 0%, #3182ce 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3) !important;
+}
+
+/* Modal para mover arquivos */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  z-index: 10001;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: #1a202c;
+  color: #e2e8f0;
+  border: 1px solid #4a5568;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #a0aec0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+.pasta-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.pasta-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid #2d3748;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.pasta-item:hover {
+  background: #2d3748;
+}
+
+.pasta-item.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.pasta-item i {
+  margin-right: 12px;
+  width: 16px;
+  text-align: center;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.btn-primary, .btn-secondary {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #edf2f7;
+}
+
+
+.qrcode-container {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+
+.qrcode-container img {
+  background-color: white;
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.qrcode-container img:hover {
+  transform: scale(1.05);
+}
+
+/* Modal de zoom */
+.qr-modal {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  backdrop-filter: blur(5px);
+  background-color: rgba(0,0,0,0.8);
+  justify-content: center;
+  align-items: center;
+}
+
+.qr-modal img {
+  background-color: white;
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  width: 500px;
+  height: auto;
+}
+
+.qr-modal:active {
+  display: none;
+}
+
+.qrcode-container img {
+  background-color: white;
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+  cursor: pointer;
+}
+
+.qrcode-container img:hover {
+  transform: scale(1.05);
+}
+
+
+
+
+  </style>
+</head>
+<body>
+  <div id="avisoGaleria" class="aviso-galeria-toast">
+    <i class="fa-solid fa-arrows-rotate"></i> <span id="avisoGaleriaTexto">Atualizando...</span>
+  </div>
+
+  <!-- Botão hamburger para mobile -->
+  <button class="hamburger" onclick="toggleSidebar()">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+
+  <!-- Botão hamburger para menu superior -->
+  <button class="hamburger-menu" onclick="toggleTopMenu()">
+    <i class="fa-solid fa-ellipsis-vertical"></i>
+  </button>
+
+  <!-- Menu dropdown para busca e filtros -->
+  <div class="top-menu-dropdown" id="topMenuDropdown">
+    <!-- Breadcrumbs -->
+    <div class="breadcrumbs">
+      <!-- Botões de navegação integrados -->
+      <button id="mobileBackBtn" onclick="goBack()" style="background: transparent; border: 1px solid #4a5568; color: #a0aec0; padding: 0.3rem 0.5rem; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; margin-right: 0.5rem;" disabled>
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <button id="mobileForwardBtn" onclick="goForward()" style="background: transparent; border: 1px solid #4a5568; color: #a0aec0; padding: 0.3rem 0.5rem; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; margin-right: 0.5rem;" disabled>
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+      
+      <i class="fa-solid fa-folder-open"></i>
+      <span id="currentPath" style="margin-left: 0.5rem;">Galeria</span>
+    </div>
+
+    <!-- Busca unificada (igual ao desktop) -->
+    <div class="search-bar">
+      <input type="text" id="mobileSearchInput" placeholder="🔍 Buscar arquivos e pastas...">
+      <button id="mobileGlobalSearchBtn" onclick="performGlobalSearch()">Busca Global</button>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="filter-buttons">
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="folders">Pastas</button>
+      <button class="filter-btn" data-filter="images">Imagens</button>
+      <button class="filter-btn" data-filter="videos">Vídeos</button>
+      <button class="filter-btn" data-filter="documents">Documentos e Arquivos</button>
+      <div id="searchResults" style="color: #a0aec0; font-size: 12px; margin-left: auto;"></div>
+    </div>
+    
+    <!-- Resultados da busca global -->
+    <div id="mobileGlobalResults" style="display: none; margin-top: 12px; max-height: 200px; overflow-y: auto; background: rgba(45, 55, 72, 0.9); border-radius: 8px; border: 1px solid #4a5568;">
+      <div id="mobileGlobalResultsList"></div>
+    </div>
+  </div>
+
+  <div class="sidebar" id="sidebar">
+    <!-- Cabeçalho compacto -->
+    <div class="sidebar-header">
+      <img src="/static/logo.png" alt="FileSwift" style="width: 60px; height: 60px; border-radius: 15px; display: block; margin: 0 auto; object-fit: contain; background: rgba(255,255,255,0.1); padding: 8px; box-sizing: border-box;">
+      <h1 style="margin: 8px 0 3px; font-size: 16px;">FileSwift</h1>
+      <p style="margin: 0; font-size: 11px; color: #a0aec0;">Gerenciador de Arquivos</p>
+    </div>
+
+    <!-- Seção de Upload compacta -->
+    <div class="sidebar-section">
+      <h2><i class="fa-solid fa-cloud-arrow-up"></i> Upload</h2>
+      
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <ul style="margin: 4px 0; padding: 0; list-style: none;">
+          {% for msg in messages %}
+            <li style="font-size: 12px; margin-bottom: 4px;">{{ msg }}</li>
+          {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+      
+      <div id="dropZone">
+        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.5rem; color: #63b3ed; margin-bottom: 6px;"></i>
+        <p style="margin: 0; color: #a0aec0; font-size: 12px;">Clique aqui ou arraste arquivos</p>
+      </div>
+      
+      <form id="uploadForm">
+        <input type="file" name="file" id="fileInput" multiple style="display: none;" />
+        <button type="submit" style="font-size: 12px; padding: 6px 10px;">Enviar Arquivos</button>
+      </form>
+      
+      <div id="progressContainer" style="display: none; margin-top: 8px;">
+        <div id="progressBar" style="width: 0%; height: 4px; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 2px;"></div>
+      </div>
+      <div id="status" style="margin-top: 6px; font-size: 11px; color: #a0aec0;"></div>
+    </div>
+
+    <!-- Seção de Criar Pasta compacta -->
+    <div class="sidebar-section">
+      <h2><i class="fa-solid fa-folder-plus"></i> Nova Pasta</h2>
+      <form method="POST" action="{{ url_for('criar_pasta', pasta=pasta) }}">
+        <input type="text" name="nome_pasta" placeholder="Nome da pasta" required style="font-size: 12px; padding: 6px 8px;">
+        <button type="submit" style="font-size: 12px; padding: 6px 10px;">Criar</button>
+      </form>
+    </div>
+
+    <!-- Seção de Textos Rápidos em destaque -->
+    <div class="sidebar-section">
+      <a href="{{ url_for('textos_lista') }}" id="linkTextosRapidos" class="btn-textos-destaque">
+        <i class="fa-solid fa-note-sticky"></i>
+        <span>Textos Rápidos</span>
+        <span id="badgeTextosNovos" class="badge-textos-novos" style="display:none;">0</span>
+      </a>
+    </div>
+
+    <!-- Seção de QR Code compacta -->
+    <div class="sidebar-section">
+      <h2><i class="fa-solid fa-qrcode"></i> QR Code</h2>
+      <div class="qrcode-container">
+        <img src="/static/qrcode.png" alt="QR Code" onclick="abrirQR()" style="width: 120px; height: 120px; margin-bottom: 8px;" />
+        <p style="margin: 0; font-size: 11px; color: #a0aec0;">Acesso rápido</p>
+      </div>
+    </div>
+
+    <!-- Seção de Navegação compacta -->
+    <div class="sidebar-section">
+      <h2><i class="fa-solid fa-house"></i> Navegação</h2>
+      <a href="/" style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: rgba(99, 179, 237, 0.1); border-radius: 4px; margin-top: 0; font-size: 12px;">
+        <i class="fa-solid fa-arrow-left"></i> Página inicial
+      </a>
+    </div>
+
+  </div>
+
+  <!-- Barra de navegação fixa no topo -->
+  <div class="top-bar">
+    <!-- Breadcrumbs -->
+    <nav class="breadcrumbs">
+      <!-- Botões de navegação integrados -->
+      <button id="backBtn" onclick="goBack()" style="background: transparent; border: 1px solid #4a5568; color: #a0aec0; padding: 0.3rem 0.5rem; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center;" disabled>
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <button id="forwardBtn" onclick="goForward()" style="background: transparent; border: 1px solid #4a5568; color: #a0aec0; padding: 0.3rem 0.5rem; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center;" disabled>
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+      
+      <span style="color: #4a5568; margin: 0 0.3rem;">|</span>
+      
+      <a href="/galeria" style="color: #63b3ed; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+        <i class="fa-solid fa-home"></i> Início
+      </a>
+      {% if pasta %}
+        {% set parts = pasta.split('/') %}
+        {% for part in parts %}
+          <span style="color: #4a5568; margin: 0 0.5rem;">></span>
+          {% set current_path = parts[:loop.index]|join('/') %}
+          {% if loop.last %}
+            <span style="color: #e2e8f0; display: inline-flex; align-items: center; gap: 0.5rem;">
+              <i class="fa-solid fa-folder"></i> {{ part }}
+            </span>
+          {% else %}
+            <a href="/galeria/{{ current_path }}" style="color: #63b3ed; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+              <i class="fa-solid fa-folder"></i> {{ part }}
+            </a>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    </nav>
+
+    <!-- Barra de busca e filtros -->
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="🔍 Buscar arquivos e pastas...">
+      <button id="globalSearchBtn" onclick="performGlobalSearch()">Busca Global</button>
+    </div>
+    
+    <div class="filter-buttons">
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="folders">Pastas</button>
+      <button class="filter-btn" data-filter="images">Imagens</button>
+      <button class="filter-btn" data-filter="videos">Vídeos</button>
+      <button class="filter-btn" data-filter="documents">Documentos e Arquivos</button>
+      <div id="searchResults" style="color: #a0aec0; font-size: 12px; margin-left: auto;"></div>
+    </div>
+    
+    <!-- Resultados da busca global -->
+    <div id="desktopGlobalResults" style="display: none; margin-top: 12px; max-height: 200px; overflow-y: auto; background: rgba(45, 55, 72, 0.9); border-radius: 8px; border: 1px solid #4a5568;">
+      <div id="desktopGlobalResultsList"></div>
+    </div>
+  </div>
+
+  <div class="main-content">
+
+    <!-- Botões de seleção múltipla -->
+    <div id="selectionToolbar" style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, rgba(45, 55, 72, 0.4) 0%, rgba(74, 85, 104, 0.3) 100%); border-radius: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);">
+      <button id="toggleSelectionBtn" onclick="toggleSelectionMode()" style="padding: 10px 16px; border: none; border-radius: 8px; background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); color: white; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);">
+        <i class="fa-solid fa-check-square"></i> Selecionar Múltiplos
+      </button>
+      
+      <div id="selectionActions" style="display: none; flex: 1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <button id="selectAllBtn" onclick="selectAll()" style="padding: 8px 14px; border: none; border-radius: 6px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);">
+          <i class="fa-solid fa-check-double"></i> Todos
+        </button>
+        
+        <button id="deselectAllBtn" onclick="deselectAll()" style="padding: 8px 14px; border: none; border-radius: 6px; background: linear-gradient(135deg, #6c757d 0%, #4a5568 100%); color: white; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);">
+          <i class="fa-solid fa-times"></i> Limpar
+        </button>
+        
+        <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+          <span id="selectionInfo" style="color: #e2e8f0; font-size: 13px; font-weight: 500; padding: 8px 12px; background: rgba(255, 255, 255, 0.1); border-radius: 6px;">
+            <i class="fa-solid fa-info-circle"></i> <span id="selectedCount">0</span> selecionados
+          </span>
+          
+          <button id="deleteSelectedBtn" onclick="deleteSelected()" style="padding: 8px 14px; border: none; border-radius: 6px; background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); color: white; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); opacity: 0.5; pointer-events: none;">
+            <i class="fa-solid fa-trash"></i> Apagar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulário oculto para exclusão múltipla -->
+    <form id="deleteMultipleForm" method="POST" action="{{ url_for('apagar_multiplos') }}" style="display: none;">
+      <input type="hidden" name="pasta_atual" value="{{ pasta }}">
+    </form>
+
+    {% if pastas %}
+    <section>
+      <h2 class="subtitulo">Pastas</h2>
+      <div class="grid">
+        {% for p in pastas %}
+          <div class="card" style="padding: 1rem; text-align: center;">
+            <a href="{{ url_for('galeria', pasta=p) }}">{{ p }}</a>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% else %}
+
+
+{% if subpastas %}
+<section>
+  <h2 class="subtitulo">Subpastas</h2>
+  <ul style="list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 1rem;">
+    {% for sp in subpastas %}
+    <li style="display: flex; flex-direction: column; align-items: center; width: 100px; position: relative;">
+
+      <!-- Checkbox de seleção -->
+      <input type="checkbox" class="item-checkbox" data-path="{{ (pasta ~ '/' ~ sp) if pasta else sp }}" style="display: none; position: absolute; top: 8px; right: 8px; z-index: 200; width: 20px; height: 20px; cursor: pointer; accent-color: #667eea;">
+
+      <a href="{{ url_for('galeria', pasta=(pasta ~ '/' ~ sp) if pasta else sp) }}" 
+         style="text-decoration: none; color: inherit; text-align: center;" class="item-link">
+        <i class="fa-solid fa-folder folder-icon"></i>
+        <span style="margin-top: 0.5rem; display: block; word-break: break-word;">{{ sp }}</span>
+      </a>
+    
+      <!-- OPÇÃO B: Botão inferior direito -->
+      <!-- <div class="menu-container" style="position: absolute; right: -15px; bottom: -10px; z-index: 100;">
+        <button class="menu-btn" style="background: #e74c3c; border: 2px solid white;">⋮</button> -->
+      
+      <!-- OPÇÃO A: Botão superior esquerdo (ATIVO) -->
+      <div class="menu-container" style="position: absolute; left: -15px; top: -10px; z-index: 100;">
+        <button class="menu-btn" style="background: #4a90e2; border: 2px solid white;">⋮</button>
+    
+        <div class="menu-content" style="left: -10px; right: auto; transform-origin: top left;">
+          <a href="{{ url_for('download_pasta', pasta=(pasta ~ '/' ~ sp) if pasta else sp) }}">
+            <i class="fa-solid fa-download"></i> Baixar
+          </a>
+          
+          <button type="button" class="mover-btn" onclick="copiarItem('{{ (pasta ~ '/' ~ sp) if pasta else sp }}', '{{ sp }}')">
+            <i class="fa-regular fa-copy"></i> Copiar
+          </button>
+          
+          <button type="button" onclick="abrirModalMover('{{ (pasta ~ '/' ~ sp) if pasta else sp }}', '{{ sp }}')" class="mover-btn">
+            <i class="fa-solid fa-arrows-up-down-left-right"></i> Mover para...
+          </button>
+
+          <form method="POST" 
+                action="{{ url_for('apagar_pasta', pasta=(pasta ~ '/' ~ sp) if pasta else sp) }}" 
+                onsubmit="return confirm('Tem certeza que deseja apagar a pasta {{ sp }}?');">
+            <button type="submit" class="apagar-btn">
+              <i class="fa-solid fa-trash"></i> Apagar
+            </button>
+          </form>
+        </div>
+      </div>
+    
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if imagens %}
+  <section>
+    <h2 class="subtitulo">Imagens</h2>
+    <div class="grid">
+      {% for img in imagens %}
+        <div class="card" style="position: relative;">
+          <!-- Checkbox de seleção -->
+          <input type="checkbox" class="item-checkbox" data-path="{{ pasta ~ '/' ~ img if pasta else img }}" style="display: none; position: absolute; top: 12px; right: 12px; z-index: 200; width: 20px; height: 20px; cursor: pointer; accent-color: #667eea;">
+
+          <img src="{{ url_for('media', filepath=pasta ~ '/' ~ img) }}" 
+               alt="{{ img }}" 
+               style="max-width: 100%;" class="item-link">
+          
+          <div style="margin-top: 0.5rem; word-break: break-word; overflow-wrap: break-word; max-width: 100%; line-height: 1.3; max-height: 4em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical;">{{ img }}</div>
+
+          <!-- Botão de opções (três pontinhos) -->
+          <div class="menu-container" style="position: absolute; left: -15px; top: -10px; z-index: 100;">
+            <button class="menu-btn" style="background: #4a90e2; border: 2px solid white;">⋮</button>
+
+            <!-- Menu dropdown oculto -->
+            <div class="menu-content" style="left: -10px; right: auto; transform-origin: top left;">
+              <a href="{{ url_for('media', filepath=pasta ~ '/' ~ img) }}" download>
+                <i class="fa-solid fa-download"></i> Baixar
+              </a>
+              
+              <button type="button" class="mover-btn" onclick="copiarItem('{{ pasta ~ '/' ~ img if pasta else img }}', '{{ img }}')">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+              
+              <button type="button" onclick="abrirModalMover('{{ pasta ~ '/' ~ img if pasta else img }}', '{{ img }}')" class="mover-btn">
+                <i class="fa-solid fa-arrows-up-down-left-right"></i> Mover para...
+              </button>
+
+              <form method="POST" 
+                    action="{{ url_for('apagar_arquivo', filepath=pasta ~ '/' ~ img) }}" 
+                    onsubmit="return confirm('Tem certeza que deseja apagar {{ img }}?');">
+                <button type="submit" class="apagar-btn">
+                  <i class="fa-solid fa-trash"></i> Apagar
+                </button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+
+{% if videos %}
+  <section>
+    <h2 class="subtitulo">Vídeos</h2>
+    <div class="grid">
+      {% for vid in videos %}
+        <div class="card" style="position: relative;">
+          <!-- Checkbox de seleção -->
+          <input type="checkbox" class="item-checkbox" data-path="{{ pasta ~ '/' ~ vid if pasta else vid }}" style="display: none; position: absolute; top: 12px; right: 12px; z-index: 200; width: 20px; height: 20px; cursor: pointer; accent-color: #667eea;">
+
+          <video controls style="max-width: 100%;" class="item-link">
+            <source src="{{ url_for('media', filepath=pasta ~ '/' ~ vid) }}">
+            Seu navegador não suporta vídeos.
+          </video>
+
+          <div style="margin-top: 0.5rem; word-break: break-word; overflow-wrap: break-word; max-width: 100%; line-height: 1.3; max-height: 4em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical;">{{ vid }}</div>
+
+          <!-- Botão de três pontinhos -->
+          <div class="menu-container" style="position: absolute; left: -15px; top: -10px; z-index: 100;">
+            <button class="menu-btn" style="background: #4a90e2; border: 2px solid white;">⋮</button>
+
+            <!-- Menu dropdown -->
+            <div class="menu-content" style="left: -10px; right: auto; transform-origin: top left;">
+              <a href="{{ url_for('media', filepath=pasta ~ '/' ~ vid) }}" download>
+                <i class="fa-solid fa-download"></i> Baixar vídeo
+              </a>
+              
+              <button type="button" class="mover-btn" onclick="copiarItem('{{ pasta ~ '/' ~ vid if pasta else vid }}', '{{ vid }}')">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+              
+              <button type="button" onclick="abrirModalMover('{{ pasta ~ '/' ~ vid if pasta else vid }}', '{{ vid }}')" class="mover-btn">
+                <i class="fa-solid fa-arrows-up-down-left-right"></i> Mover para...
+              </button>
+
+              <form method="POST" 
+                    action="{{ url_for('apagar_arquivo', filepath=pasta ~ '/' ~ vid) }}"
+                    onsubmit="return confirm('Tem certeza que deseja apagar {{ vid }}?');">
+                <button type="submit" class="apagar-btn">
+                  <i class="fa-solid fa-trash"></i> Apagar vídeo
+                </button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+
+
+{% if documentos %}
+<section>
+  <h2 class="subtitulo">Documentos e Arquivos</h2>
+  <div class="grid">
+    {% for doc in documentos %}
+      {% set ext = doc.lower().split('.')[-1] %}
+      {% if ext in ['pdf'] %}
+        {% set icone = 'fa-file-pdf' %}
+        {% set cor = '#dc3545' %}
+      {% elif ext in ['doc', 'docx'] %}
+        {% set icone = 'fa-file-word' %}
+        {% set cor = '#007bff' %}
+      {% elif ext in ['xls', 'xlsx'] %}
+        {% set icone = 'fa-file-excel' %}
+        {% set cor = '#28a745' %}
+      {% elif ext in ['ppt', 'pptx'] %}
+        {% set icone = 'fa-file-powerpoint' %}
+        {% set cor = '#fd7e14' %}
+      {% elif ext in ['txt', 'html', 'py'] %}
+        {% set icone = 'fa-file-lines' %}
+        {% set cor = '#6f42c1' %}
+      {% else %}
+        {% set icone = 'fa-file' %}
+        {% set cor = '#6c757d' %}
+      {% endif %}
+
+      <div class="card" style="padding: 1rem; text-align: center; position: relative;">
+        <!-- Checkbox de seleção -->
+        <input type="checkbox" class="item-checkbox" data-path="{{ pasta ~ '/' ~ doc if pasta else doc }}" style="display: none; position: absolute; top: 12px; right: 12px; z-index: 200; width: 20px; height: 20px; cursor: pointer; accent-color: #667eea;">
+
+        <div style="margin-bottom: 0.5rem;">
+          <i class="fa-solid {{ icone }}" 
+             style="font-size: 2rem; color: {{ cor }};"></i><br>
+             <a href="{{ url_for('media', filepath=pasta ~ '/' ~ doc) }}" target="_blank" style="display:block; padding:6px 12px; color:#fff; text-decoration:none; word-break: break-word; overflow-wrap: break-word; max-width: 100%; line-height: 1.3;" class="item-link">
+              {{ doc }}
+            </a>
+        </div>
+
+        <!-- Botão de três pontinhos -->
+        <div class="menu-container" style="position: absolute; left: -15px; top: -10px; z-index: 100;">
+          <button class="menu-btn" style="background: #4a90e2; border: 2px solid white;">⋮</button>
+
+          <!-- Menu dropdown -->
+          <div class="menu-content" style="left: -10px; right: auto; transform-origin: top left;">
+            <a href="{{ url_for('media', filepath=pasta ~ '/' ~ doc) }}" download >
+              <i class="fa-solid fa-download"></i> Baixar
+            </a>
+            
+            <button type="button" class="mover-btn" onclick="copiarItem('{{ pasta ~ '/' ~ doc if pasta else doc }}', '{{ doc }}')">
+              <i class="fa-regular fa-copy"></i> Copiar
+            </button>
+            
+            <button type="button" onclick="abrirModalMover('{{ pasta ~ '/' ~ doc if pasta else doc }}', '{{ doc }}')" class="mover-btn">
+              <i class="fa-solid fa-arrows-up-down-left-right"></i> Mover para...
+            </button>
+            
+            <form method="POST" 
+                  action="{{ url_for('apagar_arquivo', filepath=pasta ~ '/' ~ doc) }}"
+                  onsubmit="return confirm('Tem certeza que deseja apagar {{ doc }}?');">
+              <button type="submit" class="apagar-btn">      
+                <i class="fa-solid fa-trash"></i> Apagar Doc.
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+
+
+
+  {% endif %}
+  </div>
+
+
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="hidden">
+    <span id="closeBtn">&times;</span>
+    <img id="lightboxImg">
+    <div id="prevBtn">&#10094;</div>
+    <div id="nextBtn">&#10095;</div>
+  </div>
+
+  <!-- Modal para mover arquivos -->
+  <div id="modalMover" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitulo">Mover arquivo</h3>
+        <button class="modal-close" onclick="fecharModalMover()">&times;</button>
+      </div>
+      
+      <p id="arquivoNome" style="margin-bottom: 16px; color: #4a5568; font-weight: 500;"></p>
+      
+      <div class="pasta-list" id="listaPastas">
+        <!-- Pastas serão carregadas aqui -->
+      </div>
+      
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fecharModalMover()">Cancelar</button>
+        <button class="btn-primary" onclick="confirmarAcao()" id="btnAcao" disabled>Mover</button>
+      </div>
+    </div>
+  </div>
+
+  
+
+  <script>
+    const imagens = Array.from(document.querySelectorAll('img'));
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const closeBtn = document.getElementById('closeBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    let currentIndex = 0;
+
+    function showImage(index) {
+      currentIndex = index;
+      lightboxImg.src = imagens[currentIndex].src;
+      lightbox.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    imagens.forEach((img, index) => {
+      img.addEventListener('click', () => showImage(index));
+    });
+
+    closeBtn.onclick = () => {
+      lightbox.classList.add('hidden');
+      document.body.style.overflow = 'auto';
+    };
+
+    prevBtn.onclick = () => {
+      currentIndex = (currentIndex - 1 + imagens.length) % imagens.length;
+      showImage(currentIndex);
+    };
+
+    nextBtn.onclick = () => {
+      currentIndex = (currentIndex + 1) % imagens.length;
+      showImage(currentIndex);
+    };
+
+    document.addEventListener('keydown', (e) => {
+      if (lightbox.classList.contains('hidden')) return;
+      if (e.key === 'Escape') closeBtn.click();
+      if (e.key === 'ArrowLeft') prevBtn.click();
+      if (e.key === 'ArrowRight') nextBtn.click();
+    });
+  </script>
+
+
+<!-- JavaScript do menu deslizante removido - agora é fixo -->
+
+<script>
+  document.querySelectorAll('.menu-btn').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const menu = this.nextElementSibling;
+    const isVisible = menu.style.display === 'block';
+
+    // Fecha todos os outros menus
+    document.querySelectorAll('.menu-content').forEach(m => m.style.display = 'none');
+
+    // Abre ou fecha o menu atual
+    menu.style.display = isVisible ? 'none' : 'block';
+  });
+});
+
+// Fecha o menu se clicar fora
+window.addEventListener('click', function() {
+  document.querySelectorAll('.menu-content').forEach(m => m.style.display = 'none');
+});
+
+</script>
+
+<script>
+  function abrirQR() {
+    document.getElementById('qrModal').style.display = 'flex';
+  }
+
+  function fecharQR() {
+    document.getElementById('qrModal').style.display = 'none';
+  }
+
+  // Detecta a tecla ESC para fechar o QR
+  document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+      fecharQR();
+    }
+  });
+</script>
+
+<script>
+  // Notificação em tempo real de novos Textos Rápidos
+  const CHAVE_ULTIMA_VISITA_TEXTOS = 'fileswift_textos_ultima_visita';
+  let ultimoTextoConhecido = '';
+
+  function verificarNovosTextos() {
+    const ultimaVisita = localStorage.getItem(CHAVE_ULTIMA_VISITA_TEXTOS) || '';
+    fetch('/api/textos_contagem?desde=' + encodeURIComponent(ultimaVisita))
+      .then(r => r.json())
+      .then(data => {
+        if (data.ultimo_criado_em) {
+          ultimoTextoConhecido = data.ultimo_criado_em;
+          // Primeira execução (sem marco salvo ainda): grava o estado atual como base,
+          // para não tratar todos os textos já existentes como "novos".
+          if (!ultimaVisita) {
+            localStorage.setItem(CHAVE_ULTIMA_VISITA_TEXTOS, data.ultimo_criado_em);
+          }
+        }
+        const badge = document.getElementById('badgeTextosNovos');
+        const link = document.getElementById('linkTextosRapidos');
+        if (!badge || !link) return;
+        if (data.novos > 0) {
+          badge.textContent = data.novos;
+          badge.style.display = 'inline-flex';
+          link.classList.add('tem-novo');
+        } else {
+          badge.style.display = 'none';
+          link.classList.remove('tem-novo');
+        }
+      })
+      .catch(() => {});
+  }
+
+  const linkTextos = document.getElementById('linkTextosRapidos');
+  if (linkTextos) {
+    linkTextos.addEventListener('click', function () {
+      if (ultimoTextoConhecido) {
+        localStorage.setItem(CHAVE_ULTIMA_VISITA_TEXTOS, ultimoTextoConhecido);
+      }
+    });
+  }
+
+  verificarNovosTextos();
+  setInterval(verificarNovosTextos, 15000);
+</script>
+
+<script>
+  // Atualização automática da galeria quando arquivos são enviados/apagados por outro dispositivo
+  const URL_ASSINATURA_GALERIA = '{{ url_for("api_galeria_assinatura", pasta=pasta) }}';
+  let assinaturaGaleriaConhecida = null;
+  let avisoGaleriaMostrado = false;
+
+  function galeriaEstaOcupada() {
+    const lb = document.getElementById('lightbox');
+    if (lb && !lb.classList.contains('hidden')) return true;
+
+    if (document.querySelectorAll('.item-checkbox:checked').length > 0) return true;
+
+    const progresso = document.getElementById('progressContainer');
+    if (progresso && progresso.style.display === 'block') return true;
+
+    return false;
+  }
+
+  function mostrarAvisoGaleria(texto) {
+    const aviso = document.getElementById('avisoGaleria');
+    const span = document.getElementById('avisoGaleriaTexto');
+    if (!aviso || !span) return;
+    span.textContent = texto;
+    aviso.style.display = 'flex';
+  }
+
+  function verificarAtualizacaoGaleria() {
+    fetch(URL_ASSINATURA_GALERIA)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (assinaturaGaleriaConhecida === null) {
+          assinaturaGaleriaConhecida = data.assinatura;
+          return;
+        }
+        if (data.assinatura === assinaturaGaleriaConhecida) return;
+
+        // Houve mudança (upload/exclusão em outro dispositivo)
+        if (!avisoGaleriaMostrado) {
+          mostrarAvisoGaleria('Novos arquivos detectados, atualizando...');
+          avisoGaleriaMostrado = true;
+        }
+
+        if (!galeriaEstaOcupada()) {
+          setTimeout(function () { window.location.reload(); }, 1200);
+        }
+      })
+      .catch(function () {});
+  }
+
+  verificarAtualizacaoGaleria();
+  setInterval(verificarAtualizacaoGaleria, 4000);
+</script>
+
+<script>
+  const uploadForm = document.getElementById('uploadForm');
+  const fileInput = document.getElementById('fileInput');
+  const progressBar = document.getElementById('progressBar');
+  const progressContainer = document.getElementById('progressContainer');
+  const status = document.getElementById('status');
+  const dropZone = document.getElementById('dropZone');
+
+  // Função para fazer upload dos arquivos
+  function uploadFiles(files) {
+    console.log('🚀 uploadFiles chamado com', files.length, 'arquivo(s)');
+    
+    if (files.length === 0) {
+      alert('Selecione pelo menos um arquivo.');
+      return;
+    }
+
+    // Log detalhado dos arquivos
+    for (let i = 0; i < files.length; i++) {
+      console.log(`📄 Arquivo ${i+1}:`, {
+        nome: files[i].name,
+        tamanho: files[i].size,
+        tipo: files[i].type
+      });
+    }
+
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append('file', file);
+      console.log('📤 Adicionado ao FormData:', file.name);
+    }
+
+    const xhr = new XMLHttpRequest();
+    const uploadUrl = '{{ url_for("upload", pasta=pasta) }}';
+    console.log('🎯 URL de upload:', uploadUrl);
+    xhr.open('POST', uploadUrl, true);
+
+    xhr.upload.onprogress = function (e) {
+      if (e.lengthComputable) {
+        const percentComplete = (e.loaded / e.total) * 100;
+        progressBar.style.width = percentComplete + '%';
+        progressContainer.style.display = 'block';
+        status.textContent = `Enviando: ${Math.round(percentComplete)}%`;
+      }
+    };
+
+    xhr.onload = function () {
+      // Upload bem-sucedido retorna 200 ou 302 (redirecionamento)
+      if (xhr.status === 200 || xhr.status === 302) {
+        status.textContent = '✅ Upload concluído!';
+        progressBar.style.backgroundColor = '#4caf50';
+        setTimeout(() => {
+          progressContainer.style.display = 'none';
+          progressBar.style.width = '0%';
+          status.textContent = '';
+          
+          // Tentar múltiplos métodos de atualização
+          try {
+            // Método 1: Reload forçado
+            window.location.reload(true);
+          } catch (e) {
+            // Método 2: Redirecionar para a mesma página
+            window.location.href = window.location.href + '?t=' + Date.now();
+          }
+        }, 1500);
+      } else {
+        console.error('Erro no upload:', xhr.status, xhr.statusText, xhr.responseText);
+        status.textContent = `❌ Erro no upload (${xhr.status}): ${xhr.statusText}`;
+        progressBar.style.backgroundColor = '#f44336';
+        
+        // Tentar mostrar mais detalhes do erro
+        try {
+          const response = xhr.responseText;
+          if (response) {
+            console.log('Resposta do servidor:', response);
+            // Se a resposta contém HTML com mensagem de erro, tentar extrair
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(response, 'text/html');
+            const errorMsg = doc.querySelector('.alert, .error, .flash-message');
+            if (errorMsg) {
+              status.textContent = `❌ ${errorMsg.textContent.trim()}`;
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao processar resposta:', e);
+        }
+      }
+    };
+
+    xhr.onerror = function () {
+      console.error('Erro de conexão no upload');
+      status.textContent = '❌ Erro na conexão com o servidor.';
+      progressBar.style.backgroundColor = '#f44336';
+    };
+
+    xhr.ontimeout = function () {
+      console.error('Timeout no upload');
+      status.textContent = '❌ Timeout - arquivo muito grande ou conexão lenta.';
+      progressBar.style.backgroundColor = '#f44336';
+    };
+
+    // Definir timeout de 5 minutos para uploads grandes
+    xhr.timeout = 300000;
+
+    console.log('📡 Enviando requisição...');
+    xhr.send(formData);
+  }
+
+  // Upload via formulário
+  uploadForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    uploadFiles(fileInput.files);
+  });
+
+  // Clique na zona de drop para abrir seletor de arquivos
+  dropZone.addEventListener('click', function() {
+    fileInput.click();
+  });
+
+  // Atualizar texto quando arquivos são selecionados
+  fileInput.addEventListener('change', function() {
+    const fileCount = this.files.length;
+    console.log('📂 Arquivos selecionados via input:', fileCount);
+    
+    if (fileCount > 0) {
+      // Log dos arquivos selecionados
+      for (let i = 0; i < this.files.length; i++) {
+        console.log(`📄 Arquivo selecionado ${i+1}:`, this.files[i].name);
+      }
+      
+      dropZone.querySelector('p').textContent = `${fileCount} arquivo(s) selecionado(s) - Clique em "Enviar" ou arraste mais arquivos`;
+      dropZone.style.borderColor = '#4caf50';
+      dropZone.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+    }
+  });
+
+  // Drag & Drop functionality
+  dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.style.borderColor = '#ff5555';
+    dropZone.style.backgroundColor = 'rgba(255, 85, 85, 0.1)';
+    dropZone.querySelector('p').textContent = 'Solte os arquivos aqui!';
+  });
+
+  dropZone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.style.borderColor = '#666';
+    dropZone.style.backgroundColor = 'transparent';
+    const fileCount = fileInput.files.length;
+    if (fileCount > 0) {
+      dropZone.querySelector('p').textContent = `${fileCount} arquivo(s) selecionado(s) - Clique em "Enviar" ou arraste mais arquivos`;
+    } else {
+      dropZone.querySelector('p').textContent = 'Arraste arquivos aqui ou clique para selecionar';
+    }
+  });
+
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    dropZone.style.borderColor = '#666';
+    dropZone.style.backgroundColor = 'transparent';
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      console.log('📁 Arquivos arrastados:', files.length);
+      
+      // Atualizar visual
+      dropZone.querySelector('p').textContent = `${files.length} arquivo(s) prontos para envio`;
+      dropZone.style.borderColor = '#4caf50';
+      dropZone.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+      
+      // Upload automático após drop (não precisa atribuir ao fileInput)
+      uploadFiles(files);
+    }
+  });
+
+  // Prevenir comportamento padrão do drag & drop na página toda
+  document.addEventListener('dragover', function(e) {
+    e.preventDefault();
+  });
+  
+  document.addEventListener('drop', function(e) {
+    e.preventDefault();
+  });
+
+  // Sistema de navegação com histórico
+  let navigationHistory = [];
+  let navCurrentIndex = -1;
+
+  // Inicializar histórico com a página atual
+  function initNavigation() {
+    const currentPath = window.location.pathname;
+    navigationHistory = [currentPath];
+    navCurrentIndex = 0;
+    updateNavigationButtons();
+  }
+
+  // Adicionar nova página ao histórico
+  function addToHistory(path) {
+    // Remove itens à frente se estivermos no meio do histórico
+    navigationHistory = navigationHistory.slice(0, navCurrentIndex + 1);
+    navigationHistory.push(path);
+    navCurrentIndex++;
+    updateNavigationButtons();
+  }
+
+  // Voltar na navegação
+  function goBack() {
+    console.log('goBack chamado, navCurrentIndex:', navCurrentIndex);
+    if (navCurrentIndex > 0) {
+      navCurrentIndex--;
+      const path = navigationHistory[navCurrentIndex];
+      console.log('Navegando para:', path);
+      window.location.href = path;
+    } else {
+      console.log('Não é possível voltar, já está no início');
+    }
+  }
+
+  // Avançar na navegação
+  function goForward() {
+    console.log('goForward chamado, navCurrentIndex:', navCurrentIndex, 'history length:', navigationHistory.length);
+    if (navCurrentIndex < navigationHistory.length - 1) {
+      navCurrentIndex++;
+      const path = navigationHistory[navCurrentIndex];
+      console.log('Navegando para:', path);
+      window.location.href = path;
+    } else {
+      console.log('Não é possível avançar, já está no final');
+    }
+  }
+
+  // Atualizar estado dos botões
+  function updateNavigationButtons() {
+    const backBtn = document.getElementById('backBtn');
+    const forwardBtn = document.getElementById('forwardBtn');
+    const mobileBackBtn = document.getElementById('mobileBackBtn');
+    const mobileForwardBtn = document.getElementById('mobileForwardBtn');
+    
+    console.log('Atualizando botões de navegação:');
+    console.log('Desktop backBtn:', backBtn ? 'encontrado' : 'não encontrado');
+    console.log('Desktop forwardBtn:', forwardBtn ? 'encontrado' : 'não encontrado');
+    console.log('Mobile backBtn:', mobileBackBtn ? 'encontrado' : 'não encontrado');
+    console.log('Mobile forwardBtn:', mobileForwardBtn ? 'encontrado' : 'não encontrado');
+    console.log('navCurrentIndex:', navCurrentIndex, 'history length:', navigationHistory.length);
+    
+    // Atualizar botões do desktop
+    if (backBtn) {
+      backBtn.disabled = navCurrentIndex <= 0;
+      backBtn.style.opacity = navCurrentIndex <= 0 ? '0.5' : '1';
+      backBtn.style.cursor = navCurrentIndex <= 0 ? 'not-allowed' : 'pointer';
+    }
+    
+    if (forwardBtn) {
+      forwardBtn.disabled = navCurrentIndex >= navigationHistory.length - 1;
+      forwardBtn.style.opacity = navCurrentIndex >= navigationHistory.length - 1 ? '0.5' : '1';
+      forwardBtn.style.cursor = navCurrentIndex >= navigationHistory.length - 1 ? 'not-allowed' : 'pointer';
+    }
+    
+    // Atualizar botões do mobile
+    if (mobileBackBtn) {
+      mobileBackBtn.disabled = navCurrentIndex <= 0;
+      mobileBackBtn.style.opacity = navCurrentIndex <= 0 ? '0.5' : '1';
+      mobileBackBtn.style.cursor = navCurrentIndex <= 0 ? 'not-allowed' : 'pointer';
+    }
+    
+    if (mobileForwardBtn) {
+      mobileForwardBtn.disabled = navCurrentIndex >= navigationHistory.length - 1;
+      mobileForwardBtn.style.opacity = navCurrentIndex >= navigationHistory.length - 1 ? '0.5' : '1';
+      mobileForwardBtn.style.cursor = navCurrentIndex >= navigationHistory.length - 1 ? 'not-allowed' : 'pointer';
+    }
+  }
+
+  // Salvar histórico no localStorage
+  window.addEventListener('beforeunload', function() {
+    localStorage.setItem('fileswift_nav_history', JSON.stringify(navigationHistory));
+    localStorage.setItem('fileswift_nav_index', navCurrentIndex.toString());
+  });
+
+  // Restaurar histórico do localStorage
+  window.addEventListener('load', function() {
+    const savedHistory = localStorage.getItem('fileswift_nav_history');
+    const savedIndex = localStorage.getItem('fileswift_nav_index');
+    
+    if (savedHistory && savedIndex) {
+      try {
+        navigationHistory = JSON.parse(savedHistory);
+        navCurrentIndex = parseInt(savedIndex);
+        updateNavigationButtons();
+      } catch (e) {
+        initNavigation();
+      }
+    }
+  });
+
+  // Sistema de busca e filtros
+  let currentFilter = 'all';
+  
+  // Definir tipos de arquivo
+  const fileTypes = {
+    images: ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.ico', '.heic', '.heif'],
+    videos: ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v', '.3gp']
+    // documents: TODOS os outros arquivos (sem lista específica)
+  };
+
+  // Função para determinar o tipo de arquivo
+  function getFileType(filename) {
+    const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
+    
+    if (fileTypes.images.includes(ext)) return 'images';
+    if (fileTypes.videos.includes(ext)) return 'videos';
+    
+    // TODOS os outros arquivos são documentos (sem filtro específico)
+    return 'documents';
+  }
+
+  // Função de busca e filtro
+  function searchAndFilter() {
+    // Buscar input tanto no menu desktop quanto mobile
+    const desktopInput = document.querySelector('.top-bar #searchInput');
+    const mobileInput = document.getElementById('mobileSearchInput');
+    
+    let searchTerm = '';
+    if (desktopInput && desktopInput.value) {
+      searchTerm = desktopInput.value.toLowerCase();
+    } else if (mobileInput && mobileInput.value) {
+      searchTerm = mobileInput.value.toLowerCase();
+    }
+    
+    // Buscar todos os itens: cards e li's
+    const cardItems = document.querySelectorAll('.card');
+    const liItems = document.querySelectorAll('ul li');
+    const allItems = [...cardItems, ...liItems];
+    
+    let visibleCount = 0;
+    let totalCount = allItems.length;
+
+    allItems.forEach(item => {
+      let shouldShow = true;
+      let itemText = '';
+      let itemType = '';
+
+      // Para li's (subpastas com ícones)
+      if (item.tagName === 'LI') {
+        const folderLink = item.querySelector('a');
+        const spanElement = item.querySelector('span');
+        if (spanElement) {
+          itemText = spanElement.textContent.toLowerCase().trim();
+          itemType = 'folders';
+        }
+      }
+      // Para cards
+      else if (item.classList.contains('card')) {
+        // Verificar se é pasta (tem link para galeria)
+        const folderLink = item.querySelector('a[href*="/galeria"]');
+        if (folderLink) {
+          itemText = folderLink.textContent.toLowerCase().trim();
+          itemType = 'folders';
+        } else {
+          // É arquivo/imagem
+          const imgElement = item.querySelector('img');
+          const textDiv = item.querySelector('div');
+          
+          if (imgElement && imgElement.alt) {
+            itemText = imgElement.alt.toLowerCase();
+            itemType = getFileType(imgElement.alt);
+          } else if (textDiv) {
+            itemText = textDiv.textContent.toLowerCase().trim();
+            itemType = getFileType(textDiv.textContent);
+          }
+        }
+      }
+
+      // Aplicar filtro por tipo
+      if (currentFilter !== 'all' && itemType !== currentFilter) {
+        shouldShow = false;
+      }
+
+      // Aplicar busca por texto
+      if (searchTerm && !itemText.includes(searchTerm)) {
+        shouldShow = false;
+      }
+
+      // Mostrar/ocultar item
+      if (shouldShow) {
+        item.style.display = '';
+        visibleCount++;
+      } else {
+        item.style.display = 'none';
+      }
+    });
+
+    // Atualizar contador de resultados
+    updateResultsCounter(visibleCount, totalCount, searchTerm);
+    
+    // Mostrar/ocultar seções vazias
+    updateSectionVisibility();
+  }
+
+  // Atualizar contador de resultados
+  function updateResultsCounter(visible, total, searchTerm) {
+    const resultsDiv = document.getElementById('searchResults');
+    
+    if (searchTerm || currentFilter !== 'all') {
+      resultsDiv.textContent = `${visible} de ${total} itens`;
+    } else {
+      resultsDiv.textContent = `${total} itens`;
+    }
+  }
+
+  // Mostrar/ocultar seções vazias
+  function updateSectionVisibility() {
+    const sections = document.querySelectorAll('section');
+    
+    sections.forEach(section => {
+      const visibleItems = section.querySelectorAll('.card:not([style*="display: none"]), li:not([style*="display: none"])');
+      const header = section.querySelector('h2');
+      
+      if (visibleItems.length === 0) {
+        section.style.display = 'none';
+      } else {
+        section.style.display = '';
+      }
+    });
+  }
+
+  // Configurar filtros
+  function setupFilters() {
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', function() {
+        // Remover classe ativa de todos os botões
+        filterButtons.forEach(b => {
+          b.style.background = '#444';
+          b.style.border = '1px solid #666';
+        });
+        
+        // Ativar botão clicado
+        this.style.background = '#ff5555';
+        this.style.border = 'none';
+        
+        // Atualizar filtro atual
+        currentFilter = this.dataset.filter;
+        
+        // Aplicar filtro
+        searchAndFilter();
+      });
+    });
+  }
+
+  // Configurar busca em tempo real
+  function setupSearch() {
+    const searchInput = document.getElementById('searchInput');
+    
+    searchInput.addEventListener('input', function() {
+      searchAndFilter();
+    });
+    
+    // Limpar busca com Escape
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        this.value = '';
+        searchAndFilter();
+      }
+    });
+  }
+
+  // Função de busca global
+  function performGlobalSearch() {
+    // Buscar input tanto no menu desktop quanto mobile
+    const desktopInput = document.querySelector('.top-bar #searchInput');
+    const mobileInput = document.getElementById('mobileSearchInput');
+    
+    let searchTerm = '';
+    if (desktopInput && desktopInput.value) {
+      searchTerm = desktopInput.value.toLowerCase();
+    } else if (mobileInput && mobileInput.value) {
+      searchTerm = mobileInput.value.toLowerCase();
+    }
+    
+    if (!searchTerm) {
+      alert('Digite um termo para buscar');
+      return;
+    }
+    
+    // Buscar elementos DOM necessários (desktop ou mobile)
+    let globalResults, globalResultsList;
+    
+    if (desktopInput && desktopInput.value) {
+      // Usar elementos do desktop
+      globalResults = document.getElementById('desktopGlobalResults');
+      globalResultsList = document.getElementById('desktopGlobalResultsList');
+    } else if (mobileInput && mobileInput.value) {
+      // Usar elementos do mobile
+      globalResults = document.getElementById('mobileGlobalResults');
+      globalResultsList = document.getElementById('mobileGlobalResultsList');
+    }
+    
+    if (!globalResults || !globalResultsList) {
+      console.error('Elementos de busca global não encontrados');
+      return;
+    }
+    
+    // Fazer requisição para API
+    fetch(`/api/busca_global?q=${encodeURIComponent(searchTerm)}`)
+        .then(response => response.json())
+        .then(resultados => {
+          globalResultsList.innerHTML = '';
+          
+          if (resultados.length === 0) {
+            globalResultsList.innerHTML = '<div style="padding: 15px; text-align: center; color: #fff;">Nenhum resultado encontrado</div>';
+          } else {
+            resultados.forEach(item => {
+              const div = document.createElement('div');
+              div.style.cssText = 'padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; gap: 10px;';
+              
+              let icone = '';
+              if (item.tipo === 'pasta') icone = '📁';
+              else if (item.tipo === 'imagem') icone = '🖼️';
+              else if (item.tipo === 'video') icone = '🎥';
+              else if (item.tipo === 'documento') icone = '📄';
+              else icone = '📄';
+              
+              div.innerHTML = `
+                <span style="font-size: 18px;">${icone}</span>
+                <div>
+                  <div style="font-weight: bold; color: #fff;">${item.nome}</div>
+                  <div style="font-size: 12px; color: #fff;">${item.caminho || 'Raiz'}</div>
+                </div>
+              `;
+              
+              div.addEventListener('click', function() {
+                window.location.href = item.url;
+              });
+              
+              div.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              });
+              
+              div.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+              });
+              
+              globalResultsList.appendChild(div);
+            });
+          }
+          
+          globalResults.style.display = 'block';
+        })
+        .catch(error => {
+          console.error('Erro na busca:', error);
+          if (globalResultsList) {
+            globalResultsList.innerHTML = '<div style="padding: 15px; text-align: center; color: #ff5555;">Erro ao buscar. Tente novamente.</div>';
+          }
+          if (globalResults) {
+            globalResults.style.display = 'block';
+          }
+        });
+  }
+
+  // Configurar busca global
+  function setupGlobalSearch() {
+    // Input da barra superior (desktop) - Enter para busca global
+    const desktopSearchInput = document.querySelector('.top-bar #searchInput');
+    // Input do menu mobile (ID único)
+    const mobileSearchInput = document.getElementById('mobileSearchInput');
+    
+    if (desktopSearchInput) {
+      // Adicionar evento do Enter para busca global
+      desktopSearchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          // Enter simples para busca global
+          e.preventDefault();
+          performGlobalSearch();
+        }
+      });
+    }
+    
+    if (mobileSearchInput) {
+      // Adicionar evento do Enter para busca global no mobile
+      mobileSearchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault(); // Evitar submit de form
+          performGlobalSearch();
+        }
+      });
+    }
+    
+    // Adicionar evento ESC para fechar resultados da busca global
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        // Verificar ambos os containers de resultados
+        const desktopResults = document.getElementById('desktopGlobalResults');
+        const mobileResults = document.getElementById('mobileGlobalResults');
+        
+        if (desktopResults && desktopResults.style.display === 'block') {
+          desktopResults.style.display = 'none';
+          if (desktopSearchInput) desktopSearchInput.value = '';
+        }
+        
+        if (mobileResults && mobileResults.style.display === 'block') {
+          mobileResults.style.display = 'none';
+          if (mobileSearchInput) mobileSearchInput.value = '';
+        }
+      }
+    });
+  }
+
+  // Sistema de mover arquivos
+  let arquivoAtual = '';
+  let pastaDestino = '';
+  
+  // Sistema de copiar/colar
+  let modoAtual = 'mover'; // 'mover' ou 'colar'
+  
+  function copiarItem(filepath, nomeItem) {
+    // Copiar para sessão via fetch
+    fetch(`/copiar/${filepath}`, {
+      method: 'POST'
+    }).then(() => {
+      // Abrir modal para escolher destino
+      abrirModalColar(filepath, nomeItem);
+    }).catch(error => {
+      console.error('Erro ao copiar:', error);
+      alert('Erro ao copiar item');
+    });
+  }
+
+  function abrirModalMover(filepath, nomeArquivo) {
+    modoAtual = 'mover';
+    arquivoAtual = filepath;
+    document.getElementById('modalTitulo').textContent = 'Mover arquivo';
+    document.getElementById('arquivoNome').textContent = `Arquivo: ${nomeArquivo}`;
+    document.getElementById('btnAcao').textContent = 'Mover';
+    document.getElementById('btnAcao').style.background = '#3182ce';
+    document.getElementById('modalMover').style.display = 'flex';
+    carregarPastas();
+  }
+
+  function abrirModalColar(filepath, nomeArquivo) {
+    modoAtual = 'colar';
+    arquivoAtual = filepath;
+    document.getElementById('modalTitulo').textContent = 'Colar arquivo';
+    document.getElementById('arquivoNome').textContent = `Colar: ${nomeArquivo}`;
+    document.getElementById('btnAcao').textContent = 'Colar';
+    document.getElementById('btnAcao').style.background = '#48bb78';
+    document.getElementById('modalMover').style.display = 'flex';
+    carregarPastas();
+  }
+
+  function fecharModalMover() {
+    document.getElementById('modalMover').style.display = 'none';
+    pastaDestino = '';
+    document.getElementById('btnAcao').disabled = true;
+  }
+
+  function carregarPastas() {
+    fetch('/api/listar_pastas')
+      .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(pastas => {
+        console.log('Pastas carregadas:', pastas);
+        const listaPastas = document.getElementById('listaPastas');
+        listaPastas.innerHTML = '';
+        
+        if (!pastas || pastas.length === 0) {
+          listaPastas.innerHTML = '<p style="text-align: center; color: #666;">Nenhuma pasta encontrada</p>';
+          return;
+        }
+        
+        pastas.forEach(pasta => {
+          const item = document.createElement('div');
+          item.className = 'pasta-item';
+          item.dataset.caminho = pasta.caminho;
+          
+          const indent = '&nbsp;'.repeat(Math.max(0, pasta.nivel * 4));
+          const icone = pasta.nivel === -1 ? 'fa-home' : 'fa-folder';
+          
+          item.innerHTML = `
+            ${indent}<i class="fa-solid ${icone}"></i>
+            ${pasta.nome}
+          `;
+          
+          item.addEventListener('click', function() {
+            // Remove seleção anterior
+            document.querySelectorAll('.pasta-item').forEach(p => p.classList.remove('selected'));
+            
+            // Adiciona seleção atual
+            this.classList.add('selected');
+            pastaDestino = this.dataset.caminho;
+            document.getElementById('btnAcao').disabled = false;
+          });
+          
+          listaPastas.appendChild(item);
+        });
+      })
+      .catch(error => {
+        console.error('Erro detalhado ao carregar pastas:', error);
+        const listaPastas = document.getElementById('listaPastas');
+        listaPastas.innerHTML = `<p style="text-align: center; color: #e53e3e;">Erro: ${error.message}</p>`;
+      });
+  }
+
+  function confirmarAcao() {
+    console.log('confirmarAcao chamada:', { modoAtual, pastaDestino, arquivoAtual });
+    
+    if (!pastaDestino && pastaDestino !== '') {
+      alert('Selecione uma pasta de destino');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('pasta_destino', pastaDestino);
+    
+    let url = modoAtual === 'colar' ? '/colar' : `/mover_arquivo/${arquivoAtual}`;
+    console.log('URL da requisição:', url);
+    
+    fetch(url, {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => {
+      console.log('Response status:', response.status);
+      if (response.ok) {
+        fecharModalMover();
+        window.location.reload();
+      } else {
+        response.text().then(text => {
+          console.error('Erro na resposta:', text);
+          alert(`Erro ao ${modoAtual === 'colar' ? 'colar' : 'mover'} arquivo: ${response.status}`);
+        });
+      }
+    })
+    .catch(error => {
+      console.error('Erro:', error);
+      alert(`Erro ao ${modoAtual === 'colar' ? 'colar' : 'mover'} arquivo`);
+    });
+  }
+
+  // Fechar modal ao clicar fora
+  document.getElementById('modalMover').addEventListener('click', function(e) {
+    if (e.target === this) {
+      fecharModalMover();
+    }
+  });
+
+  // Função para toggle da sidebar no mobile
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('active');
+  }
+
+  // Função para toggle do menu superior
+  function toggleTopMenu() {
+    const topMenu = document.getElementById('topMenuDropdown');
+    topMenu.classList.toggle('active');
+  }
+
+  // Fechar menus ao clicar fora (mobile)
+  document.addEventListener('click', function(e) {
+    const sidebar = document.getElementById('sidebar');
+    const hamburger = document.querySelector('.hamburger');
+    const topMenu = document.getElementById('topMenuDropdown');
+    const hamburgerMenu = document.querySelector('.hamburger-menu');
+    
+    // Fechar sidebar
+    if (window.innerWidth <= 768 && 
+        !sidebar.contains(e.target) && 
+        !hamburger.contains(e.target) && 
+        sidebar.classList.contains('active')) {
+      sidebar.classList.remove('active');
+    }
+
+    // Fechar menu superior
+    if (window.innerWidth <= 768 && 
+        !topMenu.contains(e.target) && 
+        !hamburgerMenu.contains(e.target) && 
+        topMenu.classList.contains('active')) {
+      topMenu.classList.remove('active');
+    }
+  });
+
+  // Inicializar sistema de busca
+  document.addEventListener('DOMContentLoaded', function() {
+    setupFilters();
+    setupSearch();
+    setupGlobalSearch();
+    searchAndFilter(); // Contar itens iniciais
+    
+    // Configurar botões de navegação do mobile
+    const mobileBackBtn = document.getElementById('mobileBackBtn');
+    const mobileForwardBtn = document.getElementById('mobileForwardBtn');
+    
+    if (mobileBackBtn) {
+      console.log('Configurando evento de clique para mobileBackBtn');
+      mobileBackBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        console.log('Mobile back button clicado!');
+        goBack();
+      });
+    }
+    
+    if (mobileForwardBtn) {
+      console.log('Configurando evento de clique para mobileForwardBtn');
+      mobileForwardBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        console.log('Mobile forward button clicado!');
+        goForward();
+      });
+    }
+  });
+
+  // ===== SISTEMA DE SELEÇÃO MÚLTIPLA =====
+  let selectionMode = false;
+  let selectedItems = new Set();
+
+  function toggleSelectionMode() {
+    selectionMode = !selectionMode;
+    const toggleBtn = document.getElementById('toggleSelectionBtn');
+    const selectionActions = document.getElementById('selectionActions');
+    const checkboxes = document.querySelectorAll('.item-checkbox');
+    const itemLinks = document.querySelectorAll('.item-link');
+    const cards = document.querySelectorAll('.card, li');
+
+    if (selectionMode) {
+      // Ativar modo de seleção
+      toggleBtn.innerHTML = '<i class="fa-solid fa-times"></i> Cancelar Seleção';
+      toggleBtn.style.background = 'linear-gradient(135deg, #e53e3e 0%, #c53030 100%)';
+      
+      // Mostrar barra de ações
+      selectionActions.style.display = 'flex';
+      
+      // Mostrar checkboxes
+      checkboxes.forEach(cb => cb.style.display = 'block');
+      
+      // Adicionar efeito visual aos cards
+      cards.forEach(card => {
+        card.style.transition = 'all 0.3s ease';
+        card.style.transform = 'scale(0.98)';
+        card.style.filter = 'brightness(0.9)';
+      });
+      
+      // Desabilitar links
+      itemLinks.forEach(link => {
+        link.style.pointerEvents = 'none';
+        link.style.opacity = '0.7';
+      });
+      
+    } else {
+      // Desativar modo de seleção
+      toggleBtn.innerHTML = '<i class="fa-solid fa-check-square"></i> Selecionar Múltiplos';
+      toggleBtn.style.background = 'linear-gradient(135deg, #4a5568 0%, #2d3748 100%)';
+      
+      // Ocultar barra de ações
+      selectionActions.style.display = 'none';
+      
+      // Ocultar checkboxes
+      checkboxes.forEach(cb => {
+        cb.style.display = 'none';
+        cb.checked = false;
+      });
+      
+      // Remover efeito visual dos cards
+      cards.forEach(card => {
+        card.style.transform = 'scale(1)';
+        card.style.filter = 'brightness(1)';
+      });
+      
+      // Reabilitar links
+      itemLinks.forEach(link => {
+        link.style.pointerEvents = 'auto';
+        link.style.opacity = '1';
+      });
+      
+      // Limpar seleções
+      selectedItems.clear();
+      updateSelectedCount();
+    }
+  }
+
+  function selectAll() {
+    const checkboxes = document.querySelectorAll('.item-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = true;
+      selectedItems.add(cb.dataset.path);
+    });
+    updateSelectedCount();
+  }
+
+  function deselectAll() {
+    const checkboxes = document.querySelectorAll('.item-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = false;
+    });
+    selectedItems.clear();
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    const countSpan = document.getElementById('selectedCount');
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+    const selectionInfo = document.getElementById('selectionInfo');
+    
+    countSpan.textContent = selectedItems.size;
+    
+    // Atualizar texto do info
+    if (selectedItems.size === 0) {
+      selectionInfo.innerHTML = '<i class="fa-solid fa-info-circle"></i> Nenhum item selecionado';
+    } else if (selectedItems.size === 1) {
+      selectionInfo.innerHTML = '<i class="fa-solid fa-check-circle"></i> 1 item selecionado';
+    } else {
+      selectionInfo.innerHTML = `<i class="fa-solid fa-check-circle"></i> ${selectedItems.size} itens selecionados`;
+    }
+    
+    // Atualizar botão de apagar
+    if (selectedItems.size > 0) {
+      deleteBtn.style.opacity = '1';
+      deleteBtn.style.pointerEvents = 'auto';
+      deleteBtn.style.transform = 'scale(1)';
+    } else {
+      deleteBtn.style.opacity = '0.5';
+      deleteBtn.style.pointerEvents = 'none';
+      deleteBtn.style.transform = 'scale(0.95)';
+    }
+    
+    // Adicionar efeito visual aos itens selecionados
+    document.querySelectorAll('.item-checkbox').forEach(cb => {
+      const parent = cb.closest('.card, li');
+      if (cb.checked && parent) {
+        parent.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.3)';
+        parent.style.border = '2px solid #667eea';
+      } else if (parent) {
+        parent.style.boxShadow = '';
+        parent.style.border = '';
+      }
+    });
+  }
+
+  function deleteSelected() {
+    if (selectedItems.size === 0) {
+      alert('Nenhum item selecionado para apagar.');
+      return;
+    }
+
+    const itemNames = Array.from(selectedItems).map(path => {
+      const parts = path.split('/');
+      return parts[parts.length - 1];
+    });
+
+    const itemType = selectedItems.size === 1 ? 'item' : 'itens';
+    const confirmMsg = `🗑️ CONFIRMAÇÃO DE EXCLUSÃO\n\nVocê está prestes a apagar ${selectedItems.size} ${itemType}:\n\n📋 ${itemNames.join('\n📋 ')}\n\n⚠️ Esta ação não pode ser desfeita!\n\nTem certeza que deseja continuar?`;
+    
+    if (confirm(confirmMsg)) {
+      const form = document.getElementById('deleteMultipleForm');
+      
+      // Limpar inputs anteriores
+      const existingInputs = form.querySelectorAll('input[name="arquivos_selecionados"]');
+      existingInputs.forEach(input => input.remove());
+      
+      // Adicionar inputs para cada item selecionado
+      selectedItems.forEach(path => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'arquivos_selecionados';
+        input.value = path;
+        form.appendChild(input);
+      });
+      
+      // Submeter formulário
+      form.submit();
+    }
+  }
+
+  // Event listeners para checkboxes
+  document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('item-checkbox')) {
+      const path = e.target.dataset.path;
+      
+      if (e.target.checked) {
+        selectedItems.add(path);
+      } else {
+        selectedItems.delete(path);
+      }
+      
+      updateSelectedCount();
+    }
+  });
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1116 @@
+from flask import Flask, send_file, request, render_template, redirect, url_for, flash, send_from_directory, abort, jsonify, session, make_response
+from werkzeug.serving import make_server
+import os
+import zipfile
+import io
+import threading
+from werkzeug.utils import secure_filename
+import shutil
+from zeroconf import ServiceInfo, Zeroconf
+import socket
+import subprocess
+import platform
+from datetime import datetime, timedelta
+from collections import defaultdict
+import qrcode
+import time
+import webbrowser
+import sqlite3
+import re
+import uuid
+import hashlib
+from markupsafe import Markup, escape
+
+app = Flask(__name__)
+app.secret_key = "segredo_qualquer"  # Necessário para flash
+
+porta = 5678
+
+# Nome do mDNS
+MDNS_DOMINIO = "fileswift.local."
+MDNS_NOME = "fileswift._http._tcp.local."
+
+# Zeroconf persistente
+zeroconf = Zeroconf()
+servico_mdns = None  # Guardará o último serviço registrado
+ip_atual = None  # Guardará o último IP detectado
+
+# Pasta gravável onde ficam os dados do usuário (banco, uploads, anexos, QR code).
+# No uso normal (python3 main.py) é a própria pasta do projeto, como sempre foi.
+# Dentro do AppImage, o código roda a partir de um mount somente leitura, então o
+# AppRun exporta FILESWIFT_DATA_DIR apontando pra uma pasta gravável em ~/.local/share.
+DATA_DIR = os.environ.get('FILESWIFT_DATA_DIR', app.root_path)
+os.makedirs(DATA_DIR, exist_ok=True)
+
+MEDIA_FOLDER = os.path.join(DATA_DIR, 'static', 'download')
+UPLOAD_FOLDER = os.path.join(MEDIA_FOLDER, 'uploads')  # pasta padrão de upload
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # garante que exista a pasta
+texto = "🚀 Acessar FileSwift"  # Texto do link
+
+# --- Textos Rápidos (notas coladas, ex: confirmações de pedido) ---
+DB_PATH = os.path.join(DATA_DIR, 'fileswift.db')
+
+# Pasta onde ficam os PDFs anexados aos textos rápidos (etiquetas, notas fiscais, etc.)
+TEXTOS_ANEXOS_FOLDER = os.path.join(DATA_DIR, 'textos_anexos')
+os.makedirs(TEXTOS_ANEXOS_FOLDER, exist_ok=True)
+
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    conn = get_db_connection()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS textos_rapidos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titulo TEXT NOT NULL,
+            conteudo TEXT NOT NULL,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS textos_anexos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            texto_id INTEGER NOT NULL,
+            nome_arquivo TEXT NOT NULL,
+            nome_original TEXT NOT NULL,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+init_db()
+
+REGEX_EMAIL = re.compile(r'[\w.\-]+@[\w.\-]+\.\w+')
+REGEX_VALOR = re.compile(r'R\$\s?\d{1,3}(?:\.\d{3})*,\d{2}')
+REGEX_CPF = re.compile(r'\d{3}\.\d{3}\.\d{3}-\d{2}')
+REGEX_CEP = re.compile(r'\d{5}-\d{3}')
+
+
+def destacar_texto(texto_bruto):
+    """Escapa o texto e envolve e-mail, CPF, CEP e valores em R$ com <span> destacado."""
+    texto_html = str(escape(texto_bruto))
+
+    def marcar(regex, classe, s):
+        return regex.sub(lambda m: f'<span class="destaque {classe}">{m.group(0)}</span>', s)
+
+    texto_html = marcar(REGEX_EMAIL, 'destaque-email', texto_html)
+    texto_html = marcar(REGEX_VALOR, 'destaque-valor', texto_html)
+    texto_html = marcar(REGEX_CPF, 'destaque-cpf', texto_html)
+    texto_html = marcar(REGEX_CEP, 'destaque-cep', texto_html)
+
+    return Markup(texto_html.replace('\n', '<br>'))
+
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'ogg', 'pdf', 'txt', 'doc', 'docx', 'html', 'zip', 'py', 'md', 'xml', 'sh', 'script', 'lck', 'log', 'properties', 'docx', 'dot', 'odt', 'xls', 'csv', 'ods', 'ppt', 'pptx', 'odp', 'mp3', 'wav', 'svg', 'json', 'hevc', 'heif', 'mov'}
+
+# Variáveis globais para monitoramento
+servidor_iniciado_em = None
+dispositivos_conectados = set()
+acessos_por_dia = defaultdict(int)
+ultimo_acesso_por_ip = {}
+
+def obter_nome_rede_wifi():
+    """Obter nome da rede WiFi conectada"""
+    try:
+        sistema = platform.system().lower()
+        
+        if sistema == "linux":
+            # Tentar nmcli primeiro (NetworkManager)
+            try:
+                result = subprocess.run(['nmcli', '-t', '-f', 'active,ssid', 'dev', 'wifi'], 
+                                      capture_output=True, text=True, timeout=5)
+                for linha in result.stdout.split('\n'):
+                    if linha.startswith('yes:'):
+                        return linha.split(':', 1)[1].strip()
+            except:
+                pass
+            
+            # Tentar iwgetid como alternativa
+            try:
+                result = subprocess.run(['iwgetid', '-r'], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0 and result.stdout.strip():
+                    return result.stdout.strip()
+            except:
+                pass
+                
+        elif sistema == "darwin":  # macOS
+            try:
+                result = subprocess.run(['/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport', '-I'], 
+                                      capture_output=True, text=True, timeout=5)
+                for linha in result.stdout.split('\n'):
+                    if 'SSID:' in linha:
+                        return linha.split('SSID:')[1].strip()
+            except:
+                pass
+                
+        elif sistema == "windows":
+            try:
+                result = subprocess.run(['netsh', 'wlan', 'show', 'profiles'], 
+                                      capture_output=True, text=True, timeout=5)
+                # Implementação simplificada - pode precisar de ajustes
+                for linha in result.stdout.split('\n'):
+                    if 'Perfil de Todos os Usuários' in linha or 'All User Profile' in linha:
+                        return linha.split(':')[1].strip()
+            except:
+                pass
+        
+        return "Rede não identificada"
+        
+    except Exception as e:
+        return "Erro ao detectar rede"
+
+def registrar_acesso(ip_cliente):
+    """Registrar acesso de um dispositivo"""
+    global dispositivos_conectados, acessos_por_dia, ultimo_acesso_por_ip
+    
+    # Adicionar IP aos dispositivos conectados
+    dispositivos_conectados.add(ip_cliente)
+    
+    # Registrar acesso do dia
+    hoje = datetime.now().strftime('%Y-%m-%d')
+    acessos_por_dia[hoje] += 1
+    
+    # Atualizar último acesso
+    ultimo_acesso_por_ip[ip_cliente] = datetime.now()
+    
+    # Limpar dispositivos inativos (mais de 5 minutos sem acesso)
+    agora = datetime.now()
+    dispositivos_inativos = []
+    for ip, ultimo_acesso in ultimo_acesso_por_ip.items():
+        if agora - ultimo_acesso > timedelta(minutes=5):
+            dispositivos_inativos.append(ip)
+    
+    for ip in dispositivos_inativos:
+        dispositivos_conectados.discard(ip)
+        del ultimo_acesso_por_ip[ip]
+
+def obter_estatisticas_servidor():
+    """Obter estatísticas do servidor"""
+    global servidor_iniciado_em, dispositivos_conectados, acessos_por_dia
+    
+    # Tempo ativo
+    if servidor_iniciado_em:
+        tempo_ativo = datetime.now() - servidor_iniciado_em
+        horas = int(tempo_ativo.total_seconds() // 3600)
+        minutos = int((tempo_ativo.total_seconds() % 3600) // 60)
+        segundos = int(tempo_ativo.total_seconds() % 60)
+        tempo_ativo_str = f"{horas:02d}:{minutos:02d}:{segundos:02d}"
+    else:
+        tempo_ativo_str = "00:00:00"
+    
+    # Acessos hoje
+    hoje = datetime.now().strftime('%Y-%m-%d')
+    acessos_hoje = acessos_por_dia.get(hoje, 0)
+    
+    # Nome da rede
+    nome_rede = obter_nome_rede_wifi()
+    
+    return {
+        'tempo_ativo': tempo_ativo_str,
+        'dispositivos_conectados': len(dispositivos_conectados),
+        'acessos_hoje': acessos_hoje,
+        'nome_rede': nome_rede,
+        'servidor_iniciado_em': servidor_iniciado_em
+    }
+
+# Função para obter o endereço IP local com tratamento de erro e formato com porta
+def obter_endereco_ip(com_porta=False):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return f"{ip}:{porta}" if com_porta else ip
+
+
+# Função que gera a tag <a> pronta
+def gerar_link():
+    endereco = obter_endereco_ip(com_porta=True)
+    return f'<a href="http://{endereco}" target="_blank">Endereço da página: http://{endereco}</a>'
+
+
+# Pasta gravável onde o QR code é salvo (mesma lógica do DATA_DIR acima)
+QRCODE_FOLDER = os.path.join(DATA_DIR, 'static')
+os.makedirs(QRCODE_FOLDER, exist_ok=True)
+QRCODE_PATH = os.path.join(QRCODE_FOLDER, 'qrcode.png')
+
+
+# Função para gerar QR Code
+def gerar_qrcode(url):
+    # Gerar QR Code a partir da URL
+    qr = qrcode.make(url)
+    # Salva a imagem gerada em um arquivo temporário
+    qr.save(QRCODE_PATH)
+    return QRCODE_PATH
+
+def criar_qrcode_simples():
+    endereco = obter_endereco_ip(com_porta=True)
+    url = f"http://{endereco}/"
+
+    qr = qrcode.make(url)
+    qr.save(QRCODE_PATH)
+
+    print(f"QR Code gerado em {QRCODE_PATH} para {url}")
+
+
+
+
+
+
+def allowed_file(filename):
+    # Aceitar TODOS os tipos de arquivo - sem filtro!
+    return True
+
+
+@app.route('/upload/', defaults={'pasta': ''}, methods=['GET', 'POST'])
+@app.route('/upload/<path:pasta>', methods=['GET', 'POST'])
+def upload(pasta):
+    print(f"🔍 Upload iniciado - Pasta: '{pasta}', Método: {request.method}")
+    
+    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
+    print(f"📁 Caminho da pasta: {caminho_pasta}")
+    
+    if not os.path.exists(caminho_pasta):
+        print(f"❌ Pasta não existe: {caminho_pasta}")
+        abort(404)
+
+    if request.method == 'POST':
+        print("📤 Processando POST de upload...")
+        
+        # Verificar se há arquivos na requisição
+        print(f"🔍 Arquivos na requisição: {list(request.files.keys())}")
+        
+        if 'file' not in request.files:
+            print("❌ Nenhum campo 'file' encontrado na requisição")
+            flash('Nenhum arquivo enviado')
+            return redirect(request.url)
+
+        arquivos = request.files.getlist('file')
+        print(f"📋 {len(arquivos)} arquivo(s) recebido(s)")
+
+        enviados = []
+        erros = []
+
+        for i, file in enumerate(arquivos):
+            print(f"📄 Processando arquivo {i+1}: '{file.filename}'")
+            
+            if file.filename == '':
+                print(f"⚠️ Arquivo {i+1} sem nome, pulando...")
+                continue
+                
+            if not allowed_file(file.filename):
+                erro = f"Arquivo '{file.filename}' não permitido"
+                print(f"❌ {erro}")
+                erros.append(erro)
+                continue
+                
+            try:
+                filename = secure_filename(file.filename)
+                caminho_arquivo = os.path.join(caminho_pasta, filename)
+                print(f"💾 Salvando em: {caminho_arquivo}")
+                
+                # Verificar se a pasta tem permissão de escrita
+                if not os.access(caminho_pasta, os.W_OK):
+                    erro = f"Sem permissão de escrita na pasta: {caminho_pasta}"
+                    print(f"❌ {erro}")
+                    erros.append(erro)
+                    continue
+                
+                # Verificar se o arquivo já existe
+                if os.path.exists(caminho_arquivo):
+                    print(f"⚠️ Arquivo já existe, será sobrescrito: {filename}")
+                
+                file.save(caminho_arquivo)
+                print(f"✅ Arquivo salvo com sucesso: {filename}")
+                enviados.append(filename)
+                
+            except Exception as e:
+                erro = f"Erro ao salvar '{file.filename}': {str(e)}"
+                print(f"❌ {erro}")
+                erros.append(erro)
+
+        # Preparar mensagens de resultado
+        mensagens = []
+        if enviados:
+            msg_sucesso = f'✅ Arquivos enviados: {", ".join(enviados)}'
+            print(msg_sucesso)
+            mensagens.append(msg_sucesso)
+            
+        if erros:
+            for erro in erros:
+                print(f"❌ {erro}")
+                mensagens.append(f"❌ {erro}")
+        
+        if not enviados and not erros:
+            msg_erro = 'Nenhum arquivo válido foi enviado.'
+            print(f"⚠️ {msg_erro}")
+            mensagens.append(msg_erro)
+
+        # Flash todas as mensagens
+        for msg in mensagens:
+            flash(msg)
+
+        print(f"🔄 Redirecionando para galeria da pasta: '{pasta}'")
+        return redirect(url_for('galeria', pasta=pasta))
+
+    print("📄 Renderizando template de upload...")
+    return render_template('upload.html', pasta=pasta)
+
+
+@app.route('/static/qrcode.png')
+def static_qrcode():
+    """Serve o QR code a partir da pasta gravável (DATA_DIR), não da pasta estática somente leitura do AppImage."""
+    return send_from_directory(QRCODE_FOLDER, 'qrcode.png')
+
+
+@app.route('/')
+def index():
+    link = gerar_link()
+    print(f"Link gerado: {link}")
+    return render_template('index.html', link=link)
+
+@app.route('/test-upload')
+def test_upload():
+    """Página de teste para debug de upload"""
+    return render_template('test_upload.html')
+
+
+@app.route('/browser')
+def browser():
+    """Redireciona para a galeria - interface unificada"""
+    return redirect(url_for('galeria'))
+
+
+
+
+@app.route('/galeria/', defaults={'pasta': ''})
+@app.route('/galeria/<path:pasta>')
+def galeria(pasta):
+    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
+    if not os.path.exists(caminho_pasta):
+        abort(404)
+    
+    arquivos = os.listdir(caminho_pasta)
+    
+    # Filtrar apenas pastas
+    subpastas = [nome for nome in arquivos if os.path.isdir(os.path.join(caminho_pasta, nome))]
+    
+    # Filtrar apenas arquivos (não pastas)
+    apenas_arquivos = [f for f in arquivos if os.path.isfile(os.path.join(caminho_pasta, f))]
+    
+    # Categorizar apenas imagens e vídeos - resto vai para documentos
+    imagens = [f for f in apenas_arquivos if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.hevc'))]
+    videos = [f for f in apenas_arquivos if f.lower().endswith(('.mp4', '.webm', '.ogg', '.mov', '.heif'))]
+    
+    # TODOS os outros arquivos vão para documentos (sem filtro!)
+    documentos = [f for f in apenas_arquivos if not f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.hevc', '.mp4', '.webm', '.ogg', '.mov', '.heif'))]
+    
+    response = make_response(render_template('galeria.html', pasta=pasta, imagens=imagens, videos=videos, subpastas=subpastas, documentos=documentos))
+    
+    # Evitar cache para sempre mostrar arquivos atualizados
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
+    return response
+
+
+@app.route('/api/galeria_assinatura/', defaults={'pasta': ''})
+@app.route('/api/galeria_assinatura/<path:pasta>')
+def api_galeria_assinatura(pasta):
+    """Retorna um 'hash' do conteúdo da pasta, usado pela galeria para detectar mudanças (upload/apagar) feitas por outro dispositivo e se atualizar sozinha."""
+    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
+    if not os.path.exists(caminho_pasta):
+        abort(404)
+
+    entradas = []
+    for nome in os.listdir(caminho_pasta):
+        caminho = os.path.join(caminho_pasta, nome)
+        try:
+            info = os.stat(caminho)
+            entradas.append(f"{nome}:{info.st_mtime_ns}:{info.st_size}:{os.path.isdir(caminho)}")
+        except OSError:
+            continue
+    entradas.sort()
+
+    assinatura = hashlib.md5('|'.join(entradas).encode('utf-8', 'surrogateescape')).hexdigest()
+    return jsonify({'assinatura': assinatura})
+
+
+@app.route('/media/<path:filepath>')
+def media(filepath):
+    caminho_arquivo = os.path.join(MEDIA_FOLDER, filepath)
+    if not os.path.exists(caminho_arquivo):
+        abort(404)
+    pasta = os.path.dirname(filepath)
+    nome_arquivo = os.path.basename(filepath)
+    return send_from_directory(os.path.join(MEDIA_FOLDER, pasta), nome_arquivo)
+    
+@app.route('/download_pasta/<path:pasta>')
+def download_pasta(pasta):
+    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
+    if not os.path.exists(caminho_pasta) or not os.path.isdir(caminho_pasta):
+        abort(404)
+
+    # Cria um arquivo zip na memória
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(caminho_pasta):
+            for file in files:
+                caminho_arquivo = os.path.join(root, file)
+                # Para manter a estrutura relativa dentro do zip
+                arcname = os.path.relpath(caminho_arquivo, caminho_pasta)
+                zipf.write(caminho_arquivo, arcname)
+    memory_file.seek(0)
+
+    nome_zip = f"{os.path.basename(caminho_pasta)}.zip"
+    return send_file(memory_file, download_name=nome_zip, as_attachment=True)
+
+
+@app.route('/criar_pasta/', defaults={'pasta': ''}, methods=['POST'])
+@app.route('/criar_pasta/<path:pasta>', methods=['POST'])
+def criar_pasta(pasta):
+    nome_pasta = request.form.get('nome_pasta')
+
+    if not nome_pasta:
+        flash('Nome da pasta não pode ser vazio')
+        return redirect(request.referrer)
+
+    caminho_base = os.path.join(MEDIA_FOLDER, pasta) if pasta else MEDIA_FOLDER
+    caminho_nova_pasta = os.path.join(caminho_base, nome_pasta)
+
+    try:
+        os.makedirs(caminho_nova_pasta, exist_ok=True)
+        flash(f'Pasta "{nome_pasta}" criada com sucesso!')
+    except Exception as e:
+        flash(f'Erro ao criar pasta: {str(e)}')
+
+    return redirect(request.referrer)
+
+
+@app.route('/copiar/<path:filepath>', methods=['POST'])
+def copiar(filepath):
+    """Copia arquivo ou pasta para área de transferência."""
+    caminho_origem = os.path.join(MEDIA_FOLDER, filepath)
+    
+    if not os.path.exists(caminho_origem):
+        flash('Arquivo ou pasta não encontrado.')
+        return redirect(request.referrer)
+    
+    session['clipboard'] = {
+        'path': filepath,
+        'nome': os.path.basename(filepath),
+        'tipo': 'pasta' if os.path.isdir(caminho_origem) else 'arquivo'
+    }
+    
+    flash(f"{session['clipboard']['tipo'].capitalize()} '{session['clipboard']['nome']}' copiado.")
+    return redirect(request.referrer)
+
+
+@app.route('/colar', methods=['POST'])
+def colar():
+    """Cola item da área de transferência."""
+    if 'clipboard' not in session:
+        flash('Nada para colar.')
+        return redirect(request.referrer)
+    
+    clip = session['clipboard']
+    pasta_destino = request.form.get('pasta_destino', '')
+    
+    caminho_origem = os.path.join(MEDIA_FOLDER, clip['path'])
+    nome_item = clip['nome']
+    
+    if pasta_destino:
+        caminho_destino = os.path.join(MEDIA_FOLDER, pasta_destino, nome_item)
+    else:
+        caminho_destino = os.path.join(MEDIA_FOLDER, nome_item)
+    
+    if not os.path.exists(caminho_origem):
+        flash('Arquivo original não encontrado.')
+        session.pop('clipboard', None)
+        return redirect(request.referrer)
+    
+    if os.path.exists(caminho_destino):
+        flash(f'Já existe um item com o nome "{nome_item}" no destino.')
+        return redirect(request.referrer)
+    
+    try:
+        if os.path.isdir(caminho_origem):
+            shutil.copytree(caminho_origem, caminho_destino)
+        else:
+            shutil.copy2(caminho_origem, caminho_destino)
+        
+        flash(f'{clip["tipo"].capitalize()} "{nome_item}" colado com sucesso!')
+    except Exception as e:
+        flash(f'Erro ao colar: {str(e)}')
+    
+    return redirect(request.referrer)
+
+
+@app.route('/apagar_pasta/<path:pasta>', methods=['POST'])
+def apagar_pasta(pasta):
+    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
+
+    if not os.path.exists(caminho_pasta) or not os.path.isdir(caminho_pasta):
+        flash('Pasta não encontrada.')
+        return redirect(request.referrer)
+
+    try:
+        shutil.rmtree(caminho_pasta)
+        flash(f'Pasta "{os.path.basename(pasta)}" apagada com sucesso!')
+    except Exception as e:
+        flash(f'Erro ao apagar pasta: {str(e)}')
+
+    # Voltar para a pasta anterior (onde estava a pasta apagada)
+    pasta_anterior = os.path.dirname(pasta)
+    return redirect(url_for('galeria', pasta=pasta_anterior) if pasta_anterior else url_for('galeria'))
+
+@app.route('/apagar_arquivo/<path:filepath>', methods=['POST'])
+def apagar_arquivo(filepath):
+    caminho_arquivo = os.path.join(MEDIA_FOLDER, filepath)
+
+    if not os.path.exists(caminho_arquivo) or not os.path.isfile(caminho_arquivo):
+        flash('Arquivo não encontrado.')
+        return redirect(request.referrer)
+
+    try:
+        os.remove(caminho_arquivo)
+        flash(f'Arquivo "{os.path.basename(filepath)}" apagado com sucesso!')
+    except Exception as e:
+        flash(f'Erro ao apagar arquivo: {str(e)}')
+
+    # Voltar para a galeria da pasta atual
+    pasta_atual = os.path.dirname(filepath)
+    return redirect(url_for('galeria', pasta=pasta_atual) if pasta_atual else url_for('galeria'))
+
+
+@app.route('/apagar_multiplos', methods=['POST'])
+def apagar_multiplos():
+    """Apaga múltiplos arquivos e pastas selecionados"""
+    arquivos_selecionados = request.form.getlist('arquivos_selecionados')
+    pasta_atual = request.form.get('pasta_atual', '')
+    
+    if not arquivos_selecionados:
+        flash('Nenhum arquivo selecionado para apagar.')
+        return redirect(request.referrer)
+    
+    apagados = []
+    erros = []
+    
+    for arquivo_path in arquivos_selecionados:
+        try:
+            caminho_completo = os.path.join(MEDIA_FOLDER, arquivo_path)
+            
+            if os.path.exists(caminho_completo):
+                if os.path.isdir(caminho_completo):
+                    shutil.rmtree(caminho_completo)
+                    apagados.append(f'📁 {os.path.basename(arquivo_path)}')
+                else:
+                    os.remove(caminho_completo)
+                    apagados.append(f'📄 {os.path.basename(arquivo_path)}')
+            else:
+                erros.append(f'❌ {os.path.basename(arquivo_path)} (não encontrado)')
+                
+        except Exception as e:
+            erros.append(f'❌ {os.path.basename(arquivo_path)} (erro: {str(e)})')
+    
+    # Mensagens de resultado
+    if apagados:
+        flash(f'✅ Apagados com sucesso: {", ".join(apagados)}')
+    
+    if erros:
+        flash(f'⚠️ Erros: {", ".join(erros)}')
+    
+    # Redirecionar para a galeria da pasta atual
+    return redirect(url_for('galeria', pasta=pasta_atual) if pasta_atual else url_for('galeria'))
+
+
+@app.route('/api/busca_global')
+def busca_global():
+    termo = request.args.get('q', '').lower()
+    if not termo:
+        return jsonify([])
+    
+    resultados = []
+    
+    # Buscar em toda a estrutura de pastas
+    for root, dirs, files in os.walk(MEDIA_FOLDER):
+        # Calcular caminho relativo
+        pasta_relativa = os.path.relpath(root, MEDIA_FOLDER)
+        if pasta_relativa == '.':
+            pasta_relativa = ''
+        
+        # Buscar em pastas
+        for pasta in dirs:
+            if termo in pasta.lower():
+                caminho_pasta = os.path.join(pasta_relativa, pasta) if pasta_relativa else pasta
+                resultados.append({
+                    'nome': pasta,
+                    'tipo': 'pasta',
+                    'caminho': caminho_pasta,
+                    'url': url_for('galeria', pasta=caminho_pasta)
+                })
+        
+        # Buscar em arquivos
+        for arquivo in files:
+            if termo in arquivo.lower():
+                caminho_arquivo = os.path.join(pasta_relativa, arquivo) if pasta_relativa else arquivo
+                
+                # Determinar tipo do arquivo
+                ext = arquivo.lower().split('.')[-1] if '.' in arquivo else ''
+                if ext in ['png', 'jpg', 'jpeg', 'gif', 'webp', 'hevc']:
+                    tipo = 'imagem'
+                elif ext in ['mp4', 'webm', 'ogg', 'mov', 'heif']:
+                    tipo = 'video'
+                elif ext in ['pdf', 'txt', 'doc', 'docx', 'html', 'py', 'md', 'xml', 'zip']:
+                    tipo = 'documento'
+                else:
+                    tipo = 'arquivo'
+                
+                resultados.append({
+                    'nome': arquivo,
+                    'tipo': tipo,
+                    'caminho': caminho_arquivo,
+                    'pasta': pasta_relativa,
+                    'url': url_for('galeria', pasta=pasta_relativa) if pasta_relativa else url_for('galeria')
+                })
+    
+    # Limitar resultados para evitar sobrecarga
+    return jsonify(resultados[:50])
+
+
+@app.route('/api/listar_pastas')
+def listar_pastas():
+    """Retorna lista de todas as pastas disponíveis para mover arquivos"""
+    try:
+        pastas = []
+        
+        # Verificar se MEDIA_FOLDER existe
+        if not os.path.exists(MEDIA_FOLDER):
+            return jsonify([{'nome': 'Raiz', 'caminho': '', 'nivel': -1}])
+        
+        # Adicionar pasta raiz primeiro
+        pastas.append({'nome': 'Raiz', 'caminho': '', 'nivel': -1})
+        
+        # Percorrer todas as pastas
+        for root, dirs, files in os.walk(MEDIA_FOLDER):
+            pasta_relativa = os.path.relpath(root, MEDIA_FOLDER)
+            if pasta_relativa == '.':
+                pasta_relativa = ''
+            
+            # Adicionar subpastas da pasta atual
+            for pasta in dirs:
+                if pasta_relativa:
+                    caminho_completo = f"{pasta_relativa}/{pasta}".replace('\\', '/')
+                else:
+                    caminho_completo = pasta
+                
+                nivel = caminho_completo.count('/')
+                
+                pastas.append({
+                    'nome': pasta,
+                    'caminho': caminho_completo,
+                    'nivel': nivel
+                })
+        
+        # Ordenar por caminho para manter hierarquia
+        pastas_ordenadas = [pastas[0]]  # Manter raiz no início
+        outras_pastas = sorted(pastas[1:], key=lambda x: x['caminho'])
+        pastas_ordenadas.extend(outras_pastas)
+        
+        return jsonify(pastas_ordenadas)
+        
+    except Exception as e:
+        print(f"Erro ao listar pastas: {e}")
+        return jsonify([{'nome': 'Raiz', 'caminho': '', 'nivel': -1}]), 500
+
+
+@app.route('/mover_arquivo/<path:filepath>', methods=['POST'])
+def mover_arquivo(filepath):
+    """Move um arquivo ou pasta para outra pasta"""
+    pasta_destino = request.form.get('pasta_destino', '')
+    
+    # Caminhos de origem e destino
+    caminho_origem = os.path.join(MEDIA_FOLDER, filepath)
+    nome_item = os.path.basename(filepath)
+    
+    if pasta_destino:
+        caminho_destino = os.path.join(MEDIA_FOLDER, pasta_destino, nome_item)
+    else:
+        caminho_destino = os.path.join(MEDIA_FOLDER, nome_item)
+    
+    # Verificar se arquivo/pasta existe
+    if not os.path.exists(caminho_origem):
+        flash('Arquivo ou pasta não encontrado.')
+        return redirect(request.referrer)
+    
+    # Verificar se pasta destino existe
+    pasta_destino_dir = os.path.dirname(caminho_destino)
+    if not os.path.exists(pasta_destino_dir):
+        flash('Pasta de destino não encontrada.')
+        return redirect(request.referrer)
+    
+    # Verificar se já existe item com mesmo nome no destino
+    if os.path.exists(caminho_destino):
+        tipo_item = 'pasta' if os.path.isdir(caminho_origem) else 'arquivo'
+        flash(f'Já existe um {tipo_item} com o nome "{nome_item}" na pasta de destino.')
+        return redirect(request.referrer)
+    
+    # Verificar se não está tentando mover uma pasta para dentro dela mesma
+    if os.path.isdir(caminho_origem):
+        caminho_origem_abs = os.path.abspath(caminho_origem)
+        caminho_destino_abs = os.path.abspath(caminho_destino)
+        if caminho_destino_abs.startswith(caminho_origem_abs + os.sep):
+            flash('Não é possível mover uma pasta para dentro dela mesma.')
+            return redirect(request.referrer)
+    
+    try:
+        shutil.move(caminho_origem, caminho_destino)
+        pasta_destino_nome = os.path.basename(pasta_destino) if pasta_destino else 'Raiz'
+        tipo_item = 'Pasta' if os.path.isdir(caminho_destino) else 'Arquivo'
+        flash(f'{tipo_item} "{nome_item}" movido para "{pasta_destino_nome}" com sucesso!')
+    except Exception as e:
+        flash(f'Erro ao mover: {str(e)}')
+    
+    return redirect(request.referrer)
+
+
+def salvar_anexos_pdf(conn, texto_id, arquivos):
+    """Salva os PDFs enviados para um texto rápido e registra no banco. Retorna a quantidade salva."""
+    salvos = 0
+    for f in arquivos:
+        if not f or not f.filename:
+            continue
+        if not f.filename.lower().endswith('.pdf'):
+            continue
+
+        pasta_texto = os.path.join(TEXTOS_ANEXOS_FOLDER, str(texto_id))
+        os.makedirs(pasta_texto, exist_ok=True)
+
+        nome_original = secure_filename(f.filename)
+        nome_arquivo = f"{uuid.uuid4().hex}.pdf"
+        f.save(os.path.join(pasta_texto, nome_arquivo))
+
+        conn.execute(
+            'INSERT INTO textos_anexos (texto_id, nome_arquivo, nome_original) VALUES (?, ?, ?)',
+            (texto_id, nome_arquivo, nome_original)
+        )
+        salvos += 1
+    return salvos
+
+
+@app.route('/api/textos_contagem')
+def api_textos_contagem():
+    """Retorna quantos textos rápidos foram criados desde um timestamp, para notificação em tempo real na galeria."""
+    desde = request.args.get('desde', '')
+    conn = get_db_connection()
+    if desde:
+        novos = conn.execute('SELECT COUNT(*) AS c FROM textos_rapidos WHERE criado_em > ?', (desde,)).fetchone()['c']
+    else:
+        novos = 0
+    ultimo = conn.execute('SELECT criado_em FROM textos_rapidos ORDER BY id DESC LIMIT 1').fetchone()
+    conn.close()
+    return jsonify({'novos': novos, 'ultimo_criado_em': ultimo['criado_em'] if ultimo else None})
+
+
+@app.route('/textos/')
+def textos_lista():
+    conn = get_db_connection()
+    textos = conn.execute('''
+        SELECT t.id, t.titulo, t.conteudo, t.criado_em, COUNT(a.id) AS num_anexos
+        FROM textos_rapidos t
+        LEFT JOIN textos_anexos a ON a.texto_id = t.id
+        GROUP BY t.id
+        ORDER BY t.id DESC
+    ''').fetchall()
+    conn.close()
+    return render_template('textos_lista.html', textos=textos)
+
+
+@app.route('/api/textos_lista')
+def api_textos_lista():
+    """Lista de textos rápidos em JSON, usada pela página /textos/ para se atualizar sozinha."""
+    conn = get_db_connection()
+    textos = conn.execute('''
+        SELECT t.id, t.titulo, t.conteudo, t.criado_em, COUNT(a.id) AS num_anexos
+        FROM textos_rapidos t
+        LEFT JOIN textos_anexos a ON a.texto_id = t.id
+        GROUP BY t.id
+        ORDER BY t.id DESC
+    ''').fetchall()
+    conn.close()
+    return jsonify([dict(t) for t in textos])
+
+
+@app.route('/textos/novo', methods=['GET', 'POST'])
+def textos_novo():
+    if request.method == 'POST':
+        conteudo = request.form.get('conteudo', '').strip()
+        if not conteudo:
+            flash('O texto não pode ser vazio.')
+            return redirect(url_for('textos_novo'))
+
+        primeira_linha = next((l.strip() for l in conteudo.splitlines() if l.strip()), 'Texto sem título')
+        titulo = primeira_linha[:80]
+
+        conn = get_db_connection()
+        cursor = conn.execute('INSERT INTO textos_rapidos (titulo, conteudo) VALUES (?, ?)', (titulo, conteudo))
+        novo_id = cursor.lastrowid
+
+        salvar_anexos_pdf(conn, novo_id, request.files.getlist('anexos'))
+
+        conn.commit()
+        conn.close()
+
+        return redirect(url_for('textos_ver', id=novo_id))
+
+    return render_template('textos_form.html')
+
+
+@app.route('/textos/<int:id>')
+def textos_ver(id):
+    conn = get_db_connection()
+    texto = conn.execute('SELECT * FROM textos_rapidos WHERE id = ?', (id,)).fetchone()
+    if not texto:
+        conn.close()
+        abort(404)
+
+    anexos = conn.execute('SELECT * FROM textos_anexos WHERE texto_id = ? ORDER BY id', (id,)).fetchall()
+    conn.close()
+
+    return render_template('textos_ver.html', texto=texto, anexos=anexos, conteudo_formatado=destacar_texto(texto['conteudo']))
+
+
+@app.route('/api/textos/<int:id>/anexos')
+def api_textos_anexos(id):
+    """Lista de anexos de um texto em JSON, usada pela página /textos/<id> para se atualizar sozinha quando um anexo é enviado/apagado por outro dispositivo."""
+    conn = get_db_connection()
+    texto = conn.execute('SELECT id FROM textos_rapidos WHERE id = ?', (id,)).fetchone()
+    if not texto:
+        conn.close()
+        abort(404)
+
+    anexos = conn.execute('SELECT id, nome_original FROM textos_anexos WHERE texto_id = ? ORDER BY id', (id,)).fetchall()
+    conn.close()
+    return jsonify([dict(a) for a in anexos])
+
+
+@app.route('/textos/<int:id>/anexo', methods=['POST'])
+def textos_anexo_add(id):
+    conn = get_db_connection()
+    texto = conn.execute('SELECT id FROM textos_rapidos WHERE id = ?', (id,)).fetchone()
+    if not texto:
+        conn.close()
+        abort(404)
+
+    salvos = salvar_anexos_pdf(conn, id, request.files.getlist('anexos'))
+    conn.commit()
+    conn.close()
+
+    if salvos:
+        flash(f'{salvos} PDF(s) anexado(s) com sucesso.')
+    else:
+        flash('Nenhum PDF válido foi enviado.')
+
+    return redirect(url_for('textos_ver', id=id))
+
+
+@app.route('/textos/anexo/<int:anexo_id>')
+def textos_anexo_ver(anexo_id):
+    conn = get_db_connection()
+    anexo = conn.execute('SELECT * FROM textos_anexos WHERE id = ?', (anexo_id,)).fetchone()
+    conn.close()
+
+    if not anexo:
+        abort(404)
+
+    pasta_texto = os.path.join(TEXTOS_ANEXOS_FOLDER, str(anexo['texto_id']))
+    return send_from_directory(pasta_texto, anexo['nome_arquivo'])
+
+
+@app.route('/textos/anexo/<int:anexo_id>/download')
+def textos_anexo_download(anexo_id):
+    conn = get_db_connection()
+    anexo = conn.execute('SELECT * FROM textos_anexos WHERE id = ?', (anexo_id,)).fetchone()
+    conn.close()
+
+    if not anexo:
+        abort(404)
+
+    pasta_texto = os.path.join(TEXTOS_ANEXOS_FOLDER, str(anexo['texto_id']))
+    return send_from_directory(pasta_texto, anexo['nome_arquivo'], as_attachment=True, download_name=anexo['nome_original'])
+
+
+@app.route('/textos/anexo/<int:anexo_id>/apagar', methods=['POST'])
+def textos_anexo_apagar(anexo_id):
+    conn = get_db_connection()
+    anexo = conn.execute('SELECT * FROM textos_anexos WHERE id = ?', (anexo_id,)).fetchone()
+    if not anexo:
+        conn.close()
+        abort(404)
+
+    texto_id = anexo['texto_id']
+    caminho_arquivo = os.path.join(TEXTOS_ANEXOS_FOLDER, str(texto_id), anexo['nome_arquivo'])
+    if os.path.exists(caminho_arquivo):
+        os.remove(caminho_arquivo)
+
+    conn.execute('DELETE FROM textos_anexos WHERE id = ?', (anexo_id,))
+    conn.commit()
+    conn.close()
+
+    flash('Anexo removido.')
+    return redirect(url_for('textos_ver', id=texto_id))
+
+
+@app.route('/textos/<int:id>/apagar', methods=['POST'])
+def textos_apagar(id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM textos_rapidos WHERE id = ?', (id,))
+    conn.execute('DELETE FROM textos_anexos WHERE texto_id = ?', (id,))
+    conn.commit()
+    conn.close()
+
+    pasta_texto = os.path.join(TEXTOS_ANEXOS_FOLDER, str(id))
+    if os.path.exists(pasta_texto):
+        shutil.rmtree(pasta_texto, ignore_errors=True)
+
+    flash('Texto apagado com sucesso.')
+    return redirect(url_for('textos_lista'))
+
+
+# Variável global para controlar o servidor
+servidor_flask = None
+
+@app.route('/shutdown', methods=['GET', 'POST'])
+def shutdown():
+    """Endpoint para parar o servidor Flask"""
+    global servidor_flask
+    if servidor_flask:
+        servidor_flask.shutdown()
+        return jsonify({"message": "Servidor sendo encerrado..."}), 200
+    return jsonify({"message": "Servidor não encontrado"}), 404
+
+
+
+
+def registrar_mdns(ip_str):
+    global servico_mdns
+    ip_bytes = socket.inet_aton(ip_str)
+    if servico_mdns:
+        try:
+            zeroconf.unregister_service(servico_mdns)
+        except Exception as e:
+            print(f"⚠️ Erro ao remover mDNS antigo: {e}")
+    servico_mdns = ServiceInfo(
+        "_http._tcp.local.",
+        MDNS_NOME,
+        addresses=[ip_bytes],
+        port=porta,
+        properties={},
+        server=MDNS_DOMINIO,
+    )
+    zeroconf.register_service(servico_mdns)
+    print(f"🔗 mDNS registrado: http://{MDNS_DOMINIO}:{porta}")
+
+# Removido @app.before_first_request (obsoleto no Flask 2.2+)
+# A inicialização será feita na função run_flask()
+
+@app.before_request
+def before_request():
+    """Registrar acesso antes de cada requisição"""
+    ip_cliente = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
+    # Pegar apenas o primeiro IP se houver múltiplos (proxy)
+    if ',' in ip_cliente:
+        ip_cliente = ip_cliente.split(',')[0].strip()
+    registrar_acesso(ip_cliente)
+
+def monitorar_ip_e_registrar():
+    global ip_atual
+    while True:
+        novo_ip = obter_endereco_ip(False)
+        if novo_ip != ip_atual:
+            ip_atual = novo_ip
+            registrar_mdns(novo_ip)
+            criar_qrcode_simples()
+        time.sleep(5)
+
+
+def run_flask():
+    global servidor_flask, servidor_iniciado_em
+    servidor_iniciado_em = datetime.now()  # Marcar início do servidor
+    
+    # Inicialização que antes estava no before_first_request
+    registrar_mdns(obter_endereco_ip(False))
+    criar_qrcode_simples()
+    
+    servidor_flask = make_server("0.0.0.0", porta, app, threaded=True)
+    servidor_flask.serve_forever()
+
+def run_console_mode():
+    """Executar em modo console (sem GUI)"""
+    print("🚀 FileSwift - Gerenciador de Arquivos Web")
+    print("=" * 50)
+    print("⏳ Iniciando servidor...")
+    
+    threading.Thread(target=monitorar_ip_e_registrar, daemon=True).start()
+    
+    # Aguardar um pouco para o mDNS se registrar
+    time.sleep(2)
+    
+    endereco = obter_endereco_ip(True)
+    url = f"http://{endereco}"
+    
+    print("✅ Servidor iniciado com sucesso!")
+    print(f"🌐 Acesse: {url}")
+    print(f"📱 QR Code: static/qrcode.png")
+    print(f"🔗 mDNS: http://fileswift.local:{porta}")
+    print("=" * 50)
+    print("🌐 Abrindo navegador automaticamente...")
+    
+    # Abrir navegador
+    webbrowser.open(url)
+    
+    # Iniciar servidor Flask
+    try:
+        app.run(host="0.0.0.0", port=porta, debug=False, use_reloader=False)
+    except KeyboardInterrupt:
+        print("\n👋 FileSwift encerrado pelo usuário")
+    except Exception as e:
+        print(f"❌ Erro no servidor: {e}")
+
+if __name__ == '__main__':
+    import sys
+    
+    # Verificar se deve usar GUI ou console
+    if len(sys.argv) > 1 and sys.argv[1] == '--console':
+        run_console_mode()
+    else:
+        # Tentar importar GUI
+        try:
+            from gui_launcher import FileSwiftGUI
+            print("🚀 Iniciando FileSwift com interface gráfica...")
+            gui = FileSwiftGUI()
+            gui.run()
+        except ImportError as e:
+            print(f"⚠️  GUI não disponível ({e})")
+            print("🔄 Executando em modo console...")
+            run_console_mode()
+        except Exception as e:
+            print(f"❌ Erro na GUI: {e}")
+            print("🔄 Executando em modo console...")
+            run_console_mode()
+
+@app.route('/api/stats')
+def api_stats():
+    """API para obter estatísticas do servidor"""
+    return jsonify(obter_estatisticas_servidor())

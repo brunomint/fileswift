@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <title>Textos Rápidos</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      color: #fff;
+      background:
+        radial-gradient(ellipse at top, #1e3a8a 0%, #1e1b4b 50%, #0f0f23 100%),
+        radial-gradient(ellipse at bottom, #312e81 0%, #1e1b4b 50%, #0f0f23 100%);
+      min-height: 100vh;
+    }
+    .topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid #4a5568;
+      background: rgba(26, 32, 44, 0.6);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .topo h1 {
+      font-size: 1.3rem;
+      margin: 0;
+      color: #90cdf4;
+    }
+    .voltar, .btn-novo {
+      text-decoration: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .voltar {
+      background: rgba(74, 85, 104, 0.5);
+    }
+    .voltar:hover {
+      background: rgba(74, 85, 104, 0.8);
+    }
+    .btn-novo {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn-novo:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .conteudo {
+      padding: 24px 32px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .flash {
+      background: rgba(102, 126, 234, 0.2);
+      border: 1px solid #667eea;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+    }
+    .lista {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .item {
+      display: block;
+      background: #2d3748;
+      border-radius: 10px;
+      padding: 16px 18px;
+      text-decoration: none;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      transition: transform 0.15s ease;
+    }
+    .item:hover {
+      transform: translateY(-2px);
+      background: #34405a;
+    }
+    .item-titulo {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 4px;
+      color: #90cdf4;
+    }
+    .item-preview {
+      font-size: 0.85rem;
+      color: #cbd5e0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item-data {
+      font-size: 0.75rem;
+      color: #a0aec0;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .item-anexos {
+      color: #90cdf4;
+    }
+    .vazio {
+      text-align: center;
+      color: #a0aec0;
+      padding: 60px 20px;
+    }
+    .vazio i {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      display: block;
+      color: #4a5568;
+    }
+    .aviso-atualizacao {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(72, 187, 120, 0.15);
+      border: 1px solid #48bb78;
+      color: #9ae6b4;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="topo">
+    <h1><i class="fa-solid fa-note-sticky"></i> Textos Rápidos</h1>
+    <div style="display:flex; gap:10px;">
+      <a href="{{ url_for('galeria') }}" class="voltar"><i class="fa-solid fa-arrow-left"></i> Galeria</a>
+      <a href="{{ url_for('textos_novo') }}" class="btn-novo"><i class="fa-solid fa-plus"></i> Novo Texto</a>
+    </div>
+  </div>
+
+  <div class="conteudo">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="flash">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div id="avisoAtualizacao" class="aviso-atualizacao">
+      <i class="fa-solid fa-arrows-rotate"></i> <span id="avisoAtualizacaoTexto"></span>
+    </div>
+
+    <div id="listaContainer">
+      {% if textos %}
+        <div class="lista">
+          {% for texto in textos %}
+            <a class="item" href="{{ url_for('textos_ver', id=texto['id']) }}">
+              <div class="item-titulo">{{ texto['titulo'] }}</div>
+              <div class="item-preview">{{ texto['conteudo'] }}</div>
+              <div class="item-data">
+                <span>{{ texto['criado_em'] }}</span>
+                {% if texto['num_anexos'] %}
+                  <span class="item-anexos"><i class="fa-solid fa-paperclip"></i> {{ texto['num_anexos'] }}</span>
+                {% endif %}
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="vazio">
+          <i class="fa-solid fa-note-sticky"></i>
+          <p>Nenhum texto rápido salvo ainda.</p>
+          <a href="{{ url_for('textos_novo') }}" class="btn-novo">Criar o primeiro</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+    const CHAVE_ULTIMA_VISITA_TEXTOS = 'fileswift_textos_ultima_visita';
+    let ultimoJSON = null;
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s == null ? '' : s;
+      return div.innerHTML;
+    }
+
+    function renderLista(textos) {
+      const container = document.getElementById('listaContainer');
+      if (!container) return;
+
+      if (textos.length === 0) {
+        container.innerHTML =
+          '<div class="vazio">' +
+          '<i class="fa-solid fa-note-sticky"></i>' +
+          '<p>Nenhum texto rápido salvo ainda.</p>' +
+          '<a href="/textos/novo" class="btn-novo">Criar o primeiro</a>' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = '<div class="lista">' + textos.map(function (t) {
+        const anexos = t.num_anexos
+          ? '<span class="item-anexos"><i class="fa-solid fa-paperclip"></i> ' + t.num_anexos + '</span>'
+          : '';
+        return '<a class="item" href="/textos/' + t.id + '">' +
+          '<div class="item-titulo">' + escapeHtml(t.titulo) + '</div>' +
+          '<div class="item-preview">' + escapeHtml(t.conteudo) + '</div>' +
+          '<div class="item-data"><span>' + escapeHtml(t.criado_em) + '</span>' + anexos + '</div>' +
+          '</a>';
+      }).join('') + '</div>';
+    }
+
+    function mostrarAviso(texto) {
+      const aviso = document.getElementById('avisoAtualizacao');
+      const span = document.getElementById('avisoAtualizacaoTexto');
+      if (!aviso || !span) return;
+      span.textContent = texto;
+      aviso.style.display = 'flex';
+      clearTimeout(mostrarAviso._timer);
+      mostrarAviso._timer = setTimeout(function () { aviso.style.display = 'none'; }, 4000);
+    }
+
+    function verificarAtualizacoes() {
+      fetch('/api/textos_lista')
+        .then(function (r) { return r.json(); })
+        .then(function (textos) {
+          const novoJSON = JSON.stringify(textos);
+
+          if (ultimoJSON === null) {
+            ultimoJSON = novoJSON;
+            return;
+          }
+          if (novoJSON === ultimoJSON) return;
+
+          const idsAntigos = new Set(JSON.parse(ultimoJSON).map(function (t) { return t.id; }));
+          const idsNovos = new Set(textos.map(function (t) { return t.id; }));
+          const chegouNovo = textos.some(function (t) { return !idsAntigos.has(t.id); });
+          const saiuAlgum = [...idsAntigos].some(function (id) { return !idsNovos.has(id); });
+
+          ultimoJSON = novoJSON;
+          renderLista(textos);
+
+          if (chegouNovo) {
+            mostrarAviso('Novo texto recebido');
+            if (textos[0]) {
+              localStorage.setItem(CHAVE_ULTIMA_VISITA_TEXTOS, textos[0].criado_em);
+            }
+          } else if (saiuAlgum) {
+            mostrarAviso('Lista atualizada');
+          }
+        })
+        .catch(function () {});
+    }
+
+    verificarAtualizacoes();
+    setInterval(verificarAtualizacoes, 3000);
+  </script>
+</body>
+</html>

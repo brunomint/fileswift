@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <title>Novo Texto Rápido</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      color: #fff;
+      background:
+        radial-gradient(ellipse at top, #1e3a8a 0%, #1e1b4b 50%, #0f0f23 100%),
+        radial-gradient(ellipse at bottom, #312e81 0%, #1e1b4b 50%, #0f0f23 100%);
+      min-height: 100vh;
+    }
+    .topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid #4a5568;
+      background: rgba(26, 32, 44, 0.6);
+    }
+    .topo h1 {
+      font-size: 1.3rem;
+      margin: 0;
+      color: #90cdf4;
+    }
+    .voltar {
+      text-decoration: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: rgba(74, 85, 104, 0.5);
+    }
+    .voltar:hover {
+      background: rgba(74, 85, 104, 0.8);
+    }
+    .conteudo {
+      padding: 24px 32px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .flash {
+      background: rgba(102, 126, 234, 0.2);
+      border: 1px solid #667eea;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+    }
+    textarea {
+      width: 100%;
+      min-height: 320px;
+      background: rgba(45, 55, 72, 0.8);
+      border: 1px solid #4a5568;
+      color: #fff;
+      border-radius: 8px;
+      padding: 14px;
+      font-family: monospace;
+      font-size: 0.95rem;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #63b3ed;
+      box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.15);
+    }
+    .btn-salvar {
+      margin-top: 14px;
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .btn-salvar:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .dica {
+      font-size: 0.8rem;
+      color: #a0aec0;
+      margin-top: 8px;
+    }
+    .anexos-campo {
+      margin-top: 20px;
+      padding: 18px 14px;
+      background: rgba(45, 55, 72, 0.5);
+      border: 2px dashed #4a5568;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .anexos-campo:hover,
+    .anexos-campo.arrastando {
+      border-color: #63b3ed;
+      background: rgba(99, 179, 237, 0.1);
+    }
+    .anexos-campo label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #cbd5e0;
+      margin-bottom: 8px;
+      pointer-events: none;
+    }
+    .anexos-campo p {
+      margin: 0;
+      font-size: 0.8rem;
+      color: #a0aec0;
+      pointer-events: none;
+    }
+    .anexos-campo input[type="file"] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="topo">
+    <h1><i class="fa-solid fa-note-sticky"></i> Novo Texto Rápido</h1>
+    <a href="{{ url_for('textos_lista') }}" class="voltar"><i class="fa-solid fa-arrow-left"></i> Voltar</a>
+  </div>
+
+  <div class="conteudo">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="flash">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" enctype="multipart/form-data">
+      <textarea name="conteudo" placeholder="Cole ou digite o texto aqui..." autofocus required>{{ request.form.get('conteudo', '') }}</textarea>
+      <div class="dica">E-mails, CPF, CEP e valores em R$ serão destacados automaticamente na visualização.</div>
+
+      <div class="anexos-campo" id="anexosDropzone">
+        <label><i class="fa-solid fa-paperclip"></i> Anexar PDF (etiqueta dos Correios, nota fiscal, etc.)</label>
+        <p id="anexosDropzoneTexto">Clique aqui ou arraste os PDFs para esta área</p>
+        <input type="file" id="anexos" name="anexos" accept=".pdf,application/pdf" multiple>
+      </div>
+
+      <button type="submit" class="btn-salvar"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </form>
+  </div>
+
+  <script>
+    (function () {
+      const dropzone = document.getElementById('anexosDropzone');
+      const input = document.getElementById('anexos');
+      const texto = document.getElementById('anexosDropzoneTexto');
+
+      function atualizarTexto() {
+        if (input.files.length === 0) {
+          texto.textContent = 'Clique aqui ou arraste os PDFs para esta área';
+        } else if (input.files.length === 1) {
+          texto.textContent = input.files[0].name;
+        } else {
+          texto.textContent = input.files.length + ' arquivos selecionados';
+        }
+      }
+
+      dropzone.addEventListener('click', function () {
+        input.click();
+      });
+
+      input.addEventListener('change', atualizarTexto);
+
+      dropzone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dropzone.classList.add('arrastando');
+      });
+
+      dropzone.addEventListener('dragleave', function () {
+        dropzone.classList.remove('arrastando');
+      });
+
+      dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('arrastando');
+        if (e.dataTransfer.files.length > 0) {
+          input.files = e.dataTransfer.files;
+          atualizarTexto();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

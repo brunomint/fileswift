@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link rel="shortcut icon" type="image/png" href="/static/logo.png">
+  <link rel="apple-touch-icon" type="image/png" href="/static/logo.png">
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <title>Galerias</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: 
+        radial-gradient(ellipse at top, #1e3a8a 0%, #1e1b4b 50%, #0f0f23 100%),
+        radial-gradient(ellipse at bottom, #312e81 0%, #1e1b4b 50%, #0f0f23 100%);
+      font-family: 'Roboto', sans-serif;
+      color: #ffffff;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Estrelas animadas */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(2px 2px at 20px 30px, #eee, transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+        radial-gradient(1px 1px at 90px 40px, #fff, transparent),
+        radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.6), transparent),
+        radial-gradient(2px 2px at 160px 30px, #fff, transparent);
+      background-repeat: repeat;
+      background-size: 200px 100px;
+      animation: sparkle 20s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    @keyframes sparkle {
+      from { transform: translateX(0); }
+      to { transform: translateX(200px); }
+    }
+
+    h1 {
+      text-align: center;
+      font-size: clamp(1.8rem, 5vw, 2.5rem);
+      margin: 2rem 1rem 1rem;
+    }
+
+    h2 {
+      text-align: center;
+      font-size: clamp(1.2rem, 4vw, 1.5rem);
+      margin: 1rem;
+    }
+
+    pre {
+      text-align: center;
+      font-size: clamp(0.9rem, 3.5vw, 1rem);
+      margin: 1rem;
+      white-space: pre-wrap; /* Quebra texto no mobile */
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    li {
+      margin: 1rem 0;
+      background-color: #282828;
+      border-radius: 8px;
+      transition: background-color 0.3s;
+    }
+
+    li:hover {
+      background-color: #333333;
+    }
+
+    a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #ffffff;
+      font-size: 1.2rem;
+      padding: 1rem;
+      position: relative;
+      overflow: hidden;
+      transition: color 0.3s ease;
+    }
+
+    a:hover {
+      color: #ff5555;
+    }
+
+    /* Underline animado */
+    a::after {
+      content: '';
+      position: absolute;
+      bottom: 5px;
+      left: 0;
+      width: 0%;
+      height: 2px;
+      background-color: #ff5555;
+      transition: width 0.3s ease;
+    }
+
+    a:hover::after {
+      width: 100%;
+    }
+
+    /* Ícone pasta */
+    .fa-folder {
+      color: #ff5555;
+      min-width: 20px;
+      font-size: 1.4rem;
+    }
+
+    .qrcode-container {
+      display: flex;
+      justify-content: center;
+      margin: 1.5rem 0;
+    }
+
+    .qrcode-container img {
+      background-color: white;
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+      width: 180px;
+      height: 180px;
+      object-fit: contain;
+      transition: transform 0.3s ease;
+    }
+
+    .qrcode-container img:hover {
+      transform: scale(1.05);
+    }
+
+    /* Modal de zoom */
+    .qr-modal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      backdrop-filter: blur(5px);
+      background-color: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .qr-modal img {
+      background-color: white;
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+      width: 500px;
+      height: auto;
+    }
+
+    .qr-modal:active {
+      display: none;
+    }
+
+    .qrcode-container img {
+      background-color: white;
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+      width: 180px;
+      height: 180px;
+      object-fit: contain;
+      transition: transform 0.3s ease;
+      cursor: pointer;
+    }
+
+    .qrcode-container img:hover {
+      transform: scale(1.05);
+    }
+
+    .botao {
+        background-color: #ff5555;
+        padding: 0.7rem 1.5rem;
+        border-radius: 8px;
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        display: inline-block;
+        transition: background-color 0.3s, transform 0.2s;
+      }
+
+    .botao:hover {
+      background-color: #e6c925;
+      color: black;
+      transform: scale(1.05);
+    }
+
+    footer {
+      line-height: 1.5;
+    }
+
+    /* Container central e seções */
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .panel {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      padding: 28px;
+    }
+
+    /* Hero */
+    .hero-title {
+      text-align: center;
+      margin: 0 0 10px 0;
+      font-size: clamp(2rem, 5vw, 2.6rem);
+      color: #e2e8f0;
+    }
+    .hero-gradient {
+      background: linear-gradient(90deg, #7dd3fc, #a78bfa, #fb7185);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      display: inline-block;
+    }
+    .hero-emoji {
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .hero-subtitle {
+      text-align: center;
+      color: #a0aec0;
+      margin: 0 0 18px 0;
+      font-size: clamp(1rem, 3.5vw, 1.2rem);
+    }
+    .hero-text {
+      color: #cbd5e0;
+      font-size: 1rem;
+      line-height: 1.8;
+      margin: 0 auto;
+      max-width: 760px;
+      text-align: center;
+    }
+
+    /* CTA */
+    .cta-wrap { text-align: center; margin: 1.5rem 0 0.5rem; }
+    .botao {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 0.8rem 1.6rem;
+      border-radius: 10px;
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 6px 20px rgba(118, 75, 162, 0.35);
+      display: inline-block;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    }
+    .botao:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .botao:active { transform: translateY(0); filter: brightness(0.97); }
+
+    /* Grid de features */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 22px;
+    }
+    .feature-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+    .feature-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .feature-card i { font-size: 1.2rem; color: #63b3ed; margin-top: 3px; }
+    .feature-card h3 { margin: 0 0 6px 0; font-size: 1rem; color: #e2e8f0; }
+    .feature-card p { margin: 0; color: #a0aec0; font-size: 0.95rem; line-height: 1.6; }
+
+    /* Chip da URL com copiar */
+    .chip-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; margin-top: 18px; }
+    .chip {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #e2e8f0;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-family: monospace;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .copy-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #a0aec0;
+      padding: 6px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .copy-btn:hover { color: #fff; border-color: rgba(255,255,255,0.35); }
+
+    /* Seção QR */
+    .qr-section { text-align: center; margin-top: 24px; }
+    .qr-section h3 { margin: 0 0 10px 0; color: #e2e8f0; }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <h1 class="hero-title"><span class="hero-emoji">🚀</span> <span class="hero-gradient">Bem-vindo ao FileSwift</span></h1>
+      <h2 class="hero-subtitle">Seu gerenciador de arquivos na rede local</h2>
+
+      <p class="hero-text">
+        O FileSwift permite compartilhar, acessar e organizar seus arquivos diretamente pelo navegador,
+        de forma simples e rápida — e tudo permanece na sua rede local.
+      </p>
+
+      <div class="card-grid">
+        <div class="feature-card">
+          <i class="fa-solid fa-folder-open"></i>
+          <div>
+            <h3>Acesse de qualquer dispositivo</h3>
+            <p>Explore documentos, fotos, vídeos e músicas em dispositivos da sua rede.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <div>
+            <h3>Envie e gerencie</h3>
+            <p>Faça upload, baixe e exclua arquivos direto do navegador com praticidade.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <i class="fa-solid fa-shield-halved"></i>
+          <div>
+            <h3>Privacidade local</h3>
+            <p>Seus dados não saem da sua rede. Segurança e velocidade no dia a dia.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="cta-wrap">
+        <a class="botao" href="/galeria">🚀 Ir para pastas</a>
+      </div>
+
+      <div class="chip-row">
+        <span class="chip">
+          <i class="fa-solid fa-link"></i>
+          http://fileswift.local:5678
+        </span>
+        <button class="copy-btn" onclick="copiarURL()">
+          <i class="fa-regular fa-copy"></i> Copiar URL
+        </button>
+      </div>
+
+      <div class="qr-section">
+        <h3>📡 Acesse no celular via QR Code</h3>
+        <div class="qrcode-container">
+          <img src="/static/qrcode.png" alt="QR Code para o servidor" onclick="abrirQR()" />
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 18px;">
+        <h2 style="margin: 0 0 6px 0;">Android / Windows / iOS / Mac / Linux</h2>
+        <div style="display: inline-block;">{{ link|safe }}</div>
+      </div>
+    </div>
+
+    <!-- Modal para ampliar o QR -->
+    <div class="qr-modal" id="qrModal" onclick="fecharQR()">
+      <img src="/static/qrcode.png" alt="QR Code em destaque">
+    </div>
+
+    <footer style="text-align: center; margin-top: 1.5rem; padding: 1rem; font-size: 0.9rem; color: #666;">
+      Desenvolvido por Bruno Fragoso em 2025<br>FileSwift v1.0
+    </footer>
+  </div>
+
+ 
+  <script>
+    function abrirQR() {
+      document.getElementById('qrModal').style.display = 'flex';
+    }
+  
+    function fecharQR() {
+      document.getElementById('qrModal').style.display = 'none';
+    }
+  
+    // Detecta a tecla ESC para fechar o QR
+    document.addEventListener('keydown', function(event) {
+      if (event.key === "Escape") {
+        fecharQR();
+      }
+    });
+
+    function copiarURL() {
+      const btn = document.querySelector('.copy-btn');
+      const old = btn.innerHTML;
+      const url = window.location.origin; // usa a URL atual do servidor
+
+      // Tenta API moderna (requer contexto seguro em alguns navegadores)
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => {
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado!';
+          setTimeout(() => (btn.innerHTML = old), 1500);
+        }).catch(() => fallbackCopy(url, btn, old));
+      } else {
+        fallbackCopy(url, btn, old);
+      }
+    }
+
+    function fallbackCopy(text, btn, oldHtml) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado!';
+        setTimeout(() => (btn.innerHTML = oldHtml), 1500);
+      } catch (e) {
+        alert('Não foi possível copiar automaticamente. Copie manualmente: ' + text);
+      }
+    }
+  </script>
+</body>
+</html>

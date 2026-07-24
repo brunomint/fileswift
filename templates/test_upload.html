@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Upload - FileSwift</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .upload-area { 
+            border: 2px dashed #ccc; 
+            padding: 20px; 
+            text-align: center; 
+            margin: 20px 0;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .upload-area.dragover { 
+            border-color: #007bff; 
+            background-color: #f0f8ff; 
+        }
+        #logs { 
+            background: #f5f5f5; 
+            padding: 10px; 
+            margin: 20px 0; 
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button { 
+            padding: 10px 20px; 
+            margin: 5px; 
+            cursor: pointer; 
+        }
+        .progress { 
+            width: 100%; 
+            height: 20px; 
+            background: #f0f0f0; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            margin: 10px 0; 
+        }
+        .progress-bar { 
+            height: 100%; 
+            background: #007bff; 
+            width: 0%; 
+            transition: width 0.3s; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Upload - FileSwift</h1>
+    
+    <div class="upload-area" id="uploadArea">
+        <p>📁 Clique aqui ou arraste arquivos para testar upload</p>
+        <input type="file" id="fileInput" multiple style="display: none;">
+        <button type="button" onclick="document.getElementById('fileInput').click()">
+            📂 Selecionar Arquivos
+        </button>
+        <button type="button" onclick="testUpload()" id="uploadBtn" disabled>
+            📤 Fazer Upload
+        </button>
+    </div>
+    
+    <div class="progress" id="progressContainer" style="display: none;">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+    
+    <div id="status"></div>
+    
+    <h3>📊 Logs de Debug:</h3>
+    <div id="logs"></div>
+    
+    <button onclick="clearLogs()">🗑️ Limpar Logs</button>
+    <button onclick="testServer()">🔍 Testar Servidor</button>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const status = document.getElementById('status');
+        const logs = document.getElementById('logs');
+        
+        let selectedFiles = null;
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logs.innerHTML += `[${timestamp}] ${message}<br>`;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLogs() {
+            logs.innerHTML = '';
+        }
+        
+        function testServer() {
+            log('🔍 Testando conexão com servidor...');
+            fetch('/galeria/')
+                .then(response => {
+                    log(`✅ Servidor respondeu: ${response.status} ${response.statusText}`);
+                })
+                .catch(error => {
+                    log(`❌ Erro de conexão: ${error.message}`);
+                });
+        }
+        
+        // Eventos de arquivo
+        fileInput.addEventListener('change', function() {
+            selectedFiles = this.files;
+            log(`📂 ${selectedFiles.length} arquivo(s) selecionado(s):`);
+            
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                log(`  📄 ${file.name} (${file.size} bytes, ${file.type})`);
+            }
+            
+            uploadBtn.disabled = selectedFiles.length === 0;
+            uploadArea.querySelector('p').textContent = 
+                `${selectedFiles.length} arquivo(s) selecionado(s) - Pronto para upload`;
+        });
+        
+        // Drag & Drop
+        uploadArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+        
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', function(e) {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            selectedFiles = e.dataTransfer.files;
+            log(`📁 ${selectedFiles.length} arquivo(s) arrastado(s):`);
+            
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                log(`  📄 ${file.name} (${file.size} bytes, ${file.type})`);
+            }
+            
+            uploadBtn.disabled = selectedFiles.length === 0;
+            uploadArea.querySelector('p').textContent = 
+                `${selectedFiles.length} arquivo(s) prontos para upload`;
+        });
+        
+        function testUpload() {
+            if (!selectedFiles || selectedFiles.length === 0) {
+                log('❌ Nenhum arquivo selecionado');
+                return;
+            }
+            
+            log('🚀 Iniciando upload...');
+            
+            const formData = new FormData();
+            for (let i = 0; i < selectedFiles.length; i++) {
+                formData.append('file', selectedFiles[i]);
+                log(`📤 Adicionado ao FormData: ${selectedFiles[i].name}`);
+            }
+            
+            const xhr = new XMLHttpRequest();
+            const uploadUrl = '/upload/';
+            log(`🎯 URL de upload: ${uploadUrl}`);
+            
+            xhr.open('POST', uploadUrl, true);
+            
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    progressBar.style.width = percent + '%';
+                    progressContainer.style.display = 'block';
+                    status.textContent = `Enviando: ${percent}%`;
+                    log(`📊 Progresso: ${percent}%`);
+                }
+            };
+            
+            xhr.onload = function() {
+                log(`📡 Resposta recebida: ${xhr.status} ${xhr.statusText}`);
+                log(`📋 Headers: ${JSON.stringify(Object.fromEntries([...xhr.getAllResponseHeaders().split('\r\n')].map(h => h.split(': ')).filter(h => h.length === 2)))}`);
+                
+                if (xhr.status === 200 || xhr.status === 302) {
+                    log('✅ Upload bem-sucedido!');
+                    status.textContent = '✅ Upload concluído!';
+                    progressBar.style.backgroundColor = '#28a745';
+                    
+                    // Mostrar resposta
+                    if (xhr.responseText) {
+                        log(`📄 Resposta: ${xhr.responseText.substring(0, 200)}...`);
+                    }
+                } else {
+                    log(`❌ Erro no upload: ${xhr.status} ${xhr.statusText}`);
+                    status.textContent = `❌ Erro: ${xhr.status}`;
+                    progressBar.style.backgroundColor = '#dc3545';
+                    
+                    if (xhr.responseText) {
+                        log(`📄 Erro detalhado: ${xhr.responseText.substring(0, 500)}`);
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                log('❌ Erro de conexão durante upload');
+                status.textContent = '❌ Erro de conexão';
+                progressBar.style.backgroundColor = '#dc3545';
+            };
+            
+            xhr.ontimeout = function() {
+                log('❌ Timeout durante upload');
+                status.textContent = '❌ Timeout';
+                progressBar.style.backgroundColor = '#dc3545';
+            };
+            
+            xhr.timeout = 300000; // 5 minutos
+            
+            log('📡 Enviando requisição...');
+            xhr.send(formData);
+        }
+        
+        // Testar servidor ao carregar
+        window.onload = function() {
+            log('🚀 Página de teste carregada');
+            testServer();
+        };
+    </script>
+</body>
+</html>

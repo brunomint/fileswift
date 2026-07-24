@@ -1,0 +1,28 @@
+# Ambiente Python
+venv/
+__pycache__/
+*.pyc
+
+# Dados reais do usuário (nunca versionar)
+fileswift.db
+static/download/
+static/qrcode.png
+textos_anexos/
+
+# AppImage (formato descontinuado neste projeto — mantido só como histórico local)
+FileSwift.AppDir/
+FileSwift-*.AppImage
+appimagetool
+
+# Artefatos de build (Linux .deb, Windows PyInstaller/Inno Setup)
+dist/
+build/
+*.spec.bak
+fileswift-deb/
+*.deb
+windows/Output/
+*.exe
+
+# Diversos
+.DS_Store
+Thumbs.db
