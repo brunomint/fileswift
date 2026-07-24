@@ -37,9 +37,17 @@ ip_atual = None  # Guardará o último IP detectado
 
 # Pasta gravável onde ficam os dados do usuário (banco, uploads, anexos, QR code).
 # No uso normal (python3 main.py) é a própria pasta do projeto, como sempre foi.
-# Dentro do AppImage, o código roda a partir de um mount somente leitura, então o
-# AppRun exporta FILESWIFT_DATA_DIR apontando pra uma pasta gravável em ~/.local/share.
-DATA_DIR = os.environ.get('FILESWIFT_DATA_DIR', app.root_path)
+# Em pacotes que rodam de um local somente leitura ou fora da pasta do projeto
+# (AppImage, .deb, instalador Windows), FILESWIFT_DATA_DIR é definida pelo
+# launcher; no Windows, sem launcher definindo a variável, cai no padrão
+# %LOCALAPPDATA%\FileSwift (equivalente Windows do ~/.local/share).
+def _data_dir_padrao():
+    if platform.system() == 'Windows':
+        return os.path.join(os.environ.get('LOCALAPPDATA', app.root_path), 'FileSwift')
+    return app.root_path
+
+
+DATA_DIR = os.environ.get('FILESWIFT_DATA_DIR', _data_dir_padrao())
 os.makedirs(DATA_DIR, exist_ok=True)
 
 MEDIA_FOLDER = os.path.join(DATA_DIR, 'static', 'download')

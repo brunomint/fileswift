@@ -1,0 +1,47 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Definir versão (calendário, AAAA.MM.DD)
+        shell: bash
+        run: echo "FILESWIFT_VERSION=$(date +%Y.%m.%d)" >> "$GITHUB_ENV"
+
+      - name: Instalar dependências do app + PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build com PyInstaller
+        run: pyinstaller fileswift.spec
+
+      - name: Instalar Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Gerar instalador com Inno Setup
+        shell: cmd
+        run: '"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\installer.iss'
+
+      - name: Publicar instalador como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: FileSwiftSetup-${{ env.FILESWIFT_VERSION }}
+          path: windows\Output\FileSwiftSetup-*.exe
+          if-no-files-found: error
