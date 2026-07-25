@@ -98,3 +98,7 @@ Lá dentro: `fileswift.db` (textos rápidos), `static/download/` (seus arquivos)
 - `gui_launcher.py` — janela tkinter opcional (o app funciona igual sem ela, abrindo direto no navegador)
 - `templates/` — HTML (Jinja2), um arquivo por tela
 - `install.sh`, `build-deb.sh`, `fileswift.spec` + `.github/workflows/build-windows.yml` — empacotamento por plataforma
+
+## 📄 Licença
+
+MIT — veja o arquivo [LICENSE](LICENSE).
