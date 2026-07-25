@@ -1,149 +1,100 @@
-# 🚀 FileSwift - Gerenciador de Arquivos Web
+# 🚀 FileSwift
 
-FileSwift é um gerenciador de arquivos web moderno e intuitivo que permite compartilhar, visualizar e gerenciar arquivos através do navegador em sua rede local.
+FileSwift é um servidor de arquivos para a sua rede local: acesse, organize e compartilhe fotos, vídeos e documentos pelo navegador, de qualquer dispositivo conectado ao mesmo Wi-Fi — sem depender de nuvem, sem instalar app nenhum no celular. Vem também com **Textos Rápidos**, um bloco de notas com suporte a anexar PDFs (etiquetas dos Correios, notas fiscais, etc.), pensado pra quem cola confirmações de pedido o dia inteiro.
 
 ## ✨ Funcionalidades
 
-- 📁 **Navegação de pastas** - Interface intuitiva para explorar arquivos
-- 📤 **Upload de arquivos** - Drag & drop com múltiplos formatos
-- 🖼️ **Galeria visual** - Visualização de imagens, vídeos e documentos
-- 📱 **QR Code** - Acesso rápido via dispositivos móveis
-- 🔍 **Busca global** - Encontre arquivos rapidamente
-- 📋 **Operações de arquivo** - Copiar, mover, deletar, criar pastas
-- 🌐 **mDNS** - Acesso via `fileswift.local`
-- 💻 **Interface gráfica** - Launcher amigável para usuários
+- 📁 **Galeria de arquivos** — navegação por pastas, com miniaturas de imagens e vídeos, separados de documentos
+- 📤 **Upload por clique ou arrastar-e-soltar**, múltiplos arquivos de uma vez
+- 📝 **Textos Rápidos** — notas com destaque automático de e-mail/CPF/CEP/valores em R$, com anexo de PDFs (várias por texto)
+- 🔄 **Atualização automática** — a galeria e as listas de textos se atualizam sozinhas quando outro dispositivo envia ou apaga algo, sem precisar recarregar a página
+- 📱 **QR Code + mDNS** (`fileswift.local`) — acesso rápido de qualquer celular na rede, sem digitar IP
+- 🔍 **Busca global** entre pastas e arquivos
+- 📋 Copiar, mover, apagar (individual ou em lote), criar pastas
+- 🔒 **Acesso por senha** — protegido por padrão; ninguém na rede acessa sem a senha que você define na primeira execução
+- 📲 Interface adaptada pra celular (menu lateral, drag-and-drop tocável)
 
-## 🚀 Como usar
+## 🔒 Segurança
 
-### Método 1: Interface Gráfica (Recomendado)
+O FileSwift pede uma senha única (tipo senha de Wi-Fi, não é login por usuário) antes de liberar qualquer acesso — isso é obrigatório, não dá pra pular. Na primeira vez que abrir, você vai cair direto numa tela pra definir essa senha.
 
-1. **Execute o launcher principal:**
-   ```bash
-   python FileSwift.py
-   ```
+Pontos importantes sobre o modelo de segurança atual:
+- Pensado pra uso doméstico, numa rede Wi-Fi que você já confia — não há HTTPS (o cookie de sessão trafega sem criptografia dentro da sua rede local).
+- Sessão dura 30 dias por dispositivo (prioriza não pedir senha toda hora).
+- 5 tentativas erradas de senha bloqueiam temporariamente o IP por alguns minutos.
+- **Esqueceu a senha?** Apague o arquivo `config.json` da pasta de dados (veja "Onde ficam os dados" abaixo) e reinicie — o app volta a pedir pra definir uma senha nova.
+- Não tem proteção contra CSRF nem é recomendado expor esse servidor diretamente pra internet (fora da sua rede local).
 
-2. **A interface gráfica será aberta** mostrando:
-   - ✅ Status do servidor
-   - 🌐 URL de acesso clicável
-   - 📱 QR Code para dispositivos móveis
-   - 🔘 Botões de controle (Abrir, Copiar URL, Parar, etc.)
+## 📦 Instalação
 
-3. **O navegador abrirá automaticamente** com o FileSwift
+Escolha o método pro seu sistema:
 
-### Método 2: Modo Console
-
+### Linux — qualquer distribuição (Ubuntu, Fedora, Arch, etc.)
 ```bash
-python main.py --console
+git clone https://github.com/brunomint/fileswift.git
+cd fileswift
+./install.sh
 ```
+Cria um atalho no menu de aplicativos e um comando `fileswift` no terminal. Pra desinstalar: `./uninstall.sh` (mantém seus dados — use `--purge` pra apagar tudo).
 
-### Método 3: Modo Original
-
+### Debian / Ubuntu / Linux Mint / Zorin OS
+Baixe o `.deb` mais recente (ou gere o seu: `./build-deb.sh`) e instale com:
 ```bash
-python main.py
+sudo apt install ./fileswift_<versão>_all.deb
 ```
+O `apt` resolve as dependências de sistema sozinho (Python, venv, tkinter).
 
-## 📦 Instalação de Dependências
+### Windows
+Instalador gerado automaticamente via GitHub Actions a cada release — veja a aba [Actions](../../actions/workflows/build-windows.yml) do repositório pra baixar o `.exe` mais recente (procure pelo artefato `FileSwiftSetup-*`). Instalação por usuário, sem precisar de administrador.
 
-### Automática
+### macOS
+Ainda não suportado.
+
+### Rodando direto do código-fonte (dev)
 ```bash
-python install_dependencies.py
-```
-
-### Manual
-```bash
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
+python3 main.py --console
 ```
 
-## 🔧 Dependências
+## 🌐 Como acessar
 
-- **Flask** - Framework web
-- **Pillow** - Processamento de imagens
-- **qrcode** - Geração de QR codes
-- **zeroconf** - Descoberta mDNS
-- **tkinter** - Interface gráfica (incluído no Python)
+Depois de iniciado, o servidor fica disponível em:
+- **Nesta máquina:** `http://localhost:5678`
+- **De outros dispositivos na mesma rede:** `http://<IP-da-máquina>:5678` ou `http://fileswift.local:5678`
+- **Pelo celular:** escaneie o QR Code exibido na página inicial
 
-## 📱 Acesso
+## 🗂 Onde ficam os seus dados
 
-- **Local:** `http://localhost:5678`
-- **Rede:** `http://[SEU_IP]:5678`
-- **mDNS:** `http://fileswift.local:5678`
-- **QR Code:** Escaneie com seu celular
+Nada é gravado dentro da pasta de instalação. Tudo fica numa pasta própria, separada por dispositivo:
 
-## 📁 Estrutura
+| Instalação | Pasta de dados |
+|---|---|
+| `install.sh` / `.deb` (Linux) | `~/.local/share/fileswift/` |
+| Windows | `%LOCALAPPDATA%\FileSwift\` |
+| Rodando do código-fonte | a própria pasta do projeto |
 
-```
-fileswift_2/
-├── FileSwift.py          # 🚀 Launcher principal (USE ESTE!)
-├── main.py               # 🔧 Servidor Flask
-├── gui_launcher.py       # 💻 Interface gráfica
-├── install_dependencies.py # 📦 Instalador
-├── requirements.txt      # 📋 Dependências
-├── static/
-│   ├── download/         # 📁 Pasta de arquivos
-│   ├── logo.png          # 🎨 Logo
-│   └── qrcode.png        # 📱 QR Code gerado
-└── templates/            # 🌐 Templates HTML
-```
+Lá dentro: `fileswift.db` (textos rápidos), `static/download/` (seus arquivos), `textos_anexos/` (PDFs anexados) e `config.json` (senha e configuração — nunca é versionado no Git).
 
-## 🎯 Para Usuários Finais
+## 📋 Formatos suportados
 
-### ▶️ **Iniciar:**
-1. **Execute:** `FileSwift.py`
-2. **Aguarde** a interface gráfica abrir
-3. **Clique** em "Abrir no Navegador"
-4. **Pronto!** Use o FileSwift normalmente
+**Imagens:** PNG, JPG, JPEG, GIF, WebP, HEIC/HEVC
+**Vídeos:** MP4, WebM, OGG, MOV, HEIF
+**Anexos de Textos Rápidos:** PDF
+**Demais arquivos:** qualquer tipo é aceito no upload e listado como documento (sem restrição de extensão)
 
-### ⏹️ **Parar o Servidor:**
-- **Método 1:** Clique no botão "⏹️ Parar Servidor" na interface
-- **Método 2:** Feche a janela do FileSwift (recomendado)
-- **Método 3:** Clique no "❌ Sair FileSwift"
+## 🆘 Problemas comuns
 
-**Nota:** Fechar a janela para o servidor automaticamente!
+**Esqueci a senha** — apague `config.json` na pasta de dados (veja tabela acima) e reinicie o app.
 
-### 📐 **Interface:**
-- **Tamanho da janela:** 550x830 pixels (otimizada)
-- **Redimensionável:** Sim (mínimo 500x750)
-- **Todos os controles sempre visíveis** sem necessidade de scroll
-- **📊 Atividade do Servidor:** Monitoramento em tempo real
-  - Tempo de atividade do servidor
-  - Dispositivos conectados (últimos 5 minutos)
-  - Acessos do dia atual
-  - Nome da rede WiFi conectada
+**"Porta 5678 em uso"** — outra instância do FileSwift já está rodando (nesta máquina ou em segundo plano); feche-a antes de abrir de novo.
 
-## 🔧 Para Desenvolvedores
+**Python sem `venv`/`tkinter` (Ubuntu 23.04+ / Debian recente)** — o `install.sh` detecta isso e mostra o comando certo pra instalar (`sudo apt install python3-venv python3-tk`); com o `.deb`, isso já é resolvido automaticamente pelo `apt`.
 
-- **GUI:** `gui_launcher.py` - Interface tkinter
-- **Servidor:** `main.py` - Flask backend
-- **Fallback:** Modo console se GUI falhar
-- **Auto-instalação:** Dependências instaladas automaticamente
+## 🧑‍💻 Para desenvolvedores
 
-## 📋 Formatos Suportados
-
-**Imagens:** PNG, JPG, JPEG, GIF, WebP, HEVC  
-**Vídeos:** MP4, WebM, OGG, MOV, HEIF  
-**Documentos:** PDF, TXT, DOC, DOCX, HTML, MD, XML  
-**Outros:** ZIP, PY, JSON, CSV, XLS, PPT, MP3, WAV
-
-## 🆘 Solução de Problemas
-
-### GUI não abre
-- Execute: `python install_dependencies.py`
-- Ou use: `python main.py --console`
-
-### Porta ocupada
-- O sistema tentará usar porta 5678
-- Se ocupada, será exibido erro na GUI
-- **Reinicialização:** Aguarda automaticamente a porta liberar
-
-### Reinicialização lenta
-- O botão "Reiniciar" aguarda 5 segundos para garantir que a porta seja liberada
-- Status mostra: "Verificando porta..." → "Aguardando porta liberar..." → "Reiniciando..."
-- Isso evita conflitos de "Address already in use"
-
-### Dependências faltando
-- Execute o instalador automático
-- Ou instale manualmente: `pip install -r requirements.txt`
-
-## 🎉 Pronto para usar!
-
-Agora o FileSwift tem uma interface gráfica amigável que elimina a "sopa de letrinhas" do terminal. Perfeito para usuários comuns! 🚀
+- `main.py` — servidor Flask (toda a lógica de rotas, banco SQLite, autenticação)
+- `gui_launcher.py` — janela tkinter opcional (o app funciona igual sem ela, abrindo direto no navegador)
+- `templates/` — HTML (Jinja2), um arquivo por tela
+- `install.sh`, `build-deb.sh`, `fileswift.spec` + `.github/workflows/build-windows.yml` — empacotamento por plataforma
