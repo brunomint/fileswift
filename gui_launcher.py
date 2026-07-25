@@ -18,9 +18,16 @@ class FileSwiftGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("FileSwift - Gerenciador de Arquivos Web")
-        self.root.geometry("580x900")  # Aumentei largura e altura para acomodar tudo
+
+        # Altura inicial respeita o tamanho real da tela (telas pequenas não
+        # cabem 900px de janela + barra de tarefas). O conteúdo tem scroll
+        # (ver create_widgets), então mesmo numa janela baixa nada fica
+        # inacessível — só passa a rolar em vez de cortar.
+        screen_height = self.root.winfo_screenheight()
+        altura_inicial = min(900, max(500, screen_height - 100))
+        self.root.geometry(f"580x{altura_inicial}")
         self.root.resizable(True, True)  # Permitir redimensionar
-        self.root.minsize(550, 850)  # Tamanho mínimo maior para garantir visibilidade completa
+        self.root.minsize(550, 400)
         
         # Configurar ícone se existir
         try:
@@ -65,9 +72,43 @@ class FileSwiftGUI:
     
     def create_widgets(self):
         """Criar todos os widgets da interface"""
+        # Canvas + scrollbar: garante que a parte de baixo da janela (botões
+        # de controle) sempre fique acessível, mesmo em telas onde a janela
+        # não cabe inteira — em vez de cortar o conteúdo, ele passa a rolar.
+        container = ttk.Frame(self.root)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        canvas = tk.Canvas(container, borderwidth=0, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         # Frame principal com scroll se necessário
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame = ttk.Frame(canvas, padding="10")
+        janela_conteudo = canvas.create_window((0, 0), window=main_frame, anchor="nw")
+
+        def _atualizar_scrollregion(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _ajustar_largura_conteudo(event):
+            canvas.itemconfig(janela_conteudo, width=event.width)
+
+        main_frame.bind("<Configure>", _atualizar_scrollregion)
+        canvas.bind("<Configure>", _ajustar_largura_conteudo)
+
+        def _rolar_mouse(event):
+            if event.num == 5 or event.delta < 0:
+                canvas.yview_scroll(1, "units")
+            elif event.num == 4 or event.delta > 0:
+                canvas.yview_scroll(-1, "units")
+
+        # Windows/macOS usam <MouseWheel> com event.delta; Linux usa os
+        # botões 4/5 do "mouse" para rolar.
+        canvas.bind_all("<MouseWheel>", _rolar_mouse)
+        canvas.bind_all("<Button-4>", _rolar_mouse)
+        canvas.bind_all("<Button-5>", _rolar_mouse)
         
         # Título
         title_label = ttk.Label(main_frame, text="🚀 FileSwift", style='Title.TLabel')
