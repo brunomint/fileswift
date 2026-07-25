@@ -188,10 +188,47 @@
   transform: translateY(-50%); 
 }
 
-#nextBtn { 
-  top: 50%; 
-  right: 30px; 
-  transform: translateY(-50%); 
+#nextBtn {
+  top: 50%;
+  right: 30px;
+  transform: translateY(-50%);
+}
+
+#qrModal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  z-index: 9999;
+}
+
+#qrModal img {
+  width: min(80vw, 360px);
+  height: min(80vw, 360px);
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+#qrModal p {
+  color: #fff;
+  margin-top: 14px;
+  font-size: 0.9rem;
+}
+
+#qrModalClose {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  color: white;
+  font-size: 2.5rem;
+  cursor: pointer;
+  user-select: none;
 }
 
 
@@ -212,6 +249,35 @@
   flex-direction: column;
   scrollbar-width: thin;
   scrollbar-color: #4a5568 #1a202c;
+}
+
+/* Estrelas animadas, mesmo efeito do .main-content, pra não ter uma
+   "costura" visível entre o menu lateral e o resto da página. Usa
+   position:fixed (não absolute) pra não rolar junto com o conteúdo
+   do sidebar quando ele tem scroll. */
+.sidebar::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  background-image:
+    radial-gradient(2px 2px at 20px 30px, #eee, transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 90px 40px, #fff, transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.6), transparent),
+    radial-gradient(2px 2px at 160px 30px, #fff, transparent);
+  background-repeat: repeat;
+  background-size: 200px 100px;
+  animation: sparkle 20s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar > * {
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -554,7 +620,7 @@
 
   /* Conteúdo da página, afastado do menu fixo e barra superior */
   .main-content {
-    margin-left: 270px;
+    margin-left: 250px;
     margin-top: 140px; /* Espaço para a barra fixa */
     padding: 20px;
     min-height: 100vh;
@@ -1673,6 +1739,13 @@
     <div id="nextBtn">&#10095;</div>
   </div>
 
+  <!-- Modal do QR Code, isolado da galeria de fotos -->
+  <div id="qrModal" onclick="if (event.target === this) fecharQR();">
+    <span id="qrModalClose" onclick="fecharQR()">&times;</span>
+    <img src="/static/qrcode.png" alt="QR Code">
+    <p>Escaneie para acessar pelo celular</p>
+  </div>
+
   <!-- Modal para mover arquivos -->
   <div id="modalMover" class="modal-overlay">
     <div class="modal-content">
@@ -1697,7 +1770,7 @@
   
 
   <script>
-    const imagens = Array.from(document.querySelectorAll('img'));
+    const imagens = Array.from(document.querySelectorAll('img.item-link'));
     const lightbox = document.getElementById('lightbox');
     const lightboxImg = document.getElementById('lightboxImg');
     const closeBtn = document.getElementById('closeBtn');
