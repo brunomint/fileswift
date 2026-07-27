@@ -163,7 +163,7 @@ class FileSwiftGUI:
         info_frame = ttk.LabelFrame(main_frame, text="Informações", padding="10")
         info_frame.pack(fill=tk.X, pady=(0, 10))
         
-        info_text = """📁 Pasta: static/download/ | 🌐 Rede local | 📱 QR Code móvel | 🔄 mDNS: fw.local"""
+        info_text = """📁 Pasta: static/download/ | 🌐 Rede local | 📱 QR Code móvel | 🔄 mDNS: fs.local"""
         
         info_label = ttk.Label(info_frame, text=info_text, font=('Arial', 8), wraplength=450)
         info_label.pack()

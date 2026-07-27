@@ -8,7 +8,7 @@ FileSwift é um servidor de arquivos para a sua rede local: acesse, organize e c
 - 📤 **Upload por clique ou arrastar-e-soltar**, múltiplos arquivos de uma vez
 - 📝 **Textos Rápidos** — notas com destaque automático de e-mail/CPF/CEP/valores em R$, com anexo de PDFs (várias por texto)
 - 🔄 **Atualização automática** — a galeria e as listas de textos se atualizam sozinhas quando outro dispositivo envia ou apaga algo, sem precisar recarregar a página
-- 📱 **QR Code + mDNS** (`fw.local`) — acesso rápido de qualquer celular na rede, sem digitar IP
+- 📱 **QR Code + mDNS** (`fs.local`) — acesso rápido de qualquer celular na rede, sem digitar IP
 - 🔍 **Busca global** entre pastas e arquivos
 - 📋 Copiar, mover, apagar (individual ou em lote), criar pastas
 - 🔒 **Acesso por senha** — protegido por padrão; ninguém na rede acessa sem a senha que você define na primeira execução
@@ -62,7 +62,7 @@ python3 main.py --console
 
 Depois de iniciado, o servidor fica disponível em:
 - **Nesta máquina:** `http://localhost:5678`
-- **De outros dispositivos na mesma rede:** `http://<IP-da-máquina>:5678` ou `http://fw.local:5678`
+- **De outros dispositivos na mesma rede:** `http://<IP-da-máquina>:5678` ou `http://fs.local:5678`
 - **Pelo celular:** escaneie o QR Code exibido na página inicial
 
 ## 🗂 Onde ficam os seus dados

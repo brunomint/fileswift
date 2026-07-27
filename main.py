@@ -29,8 +29,8 @@ app = Flask(__name__, static_folder=None)
 porta = 5678
 
 # Nome do mDNS
-MDNS_DOMINIO = "fw.local."
-MDNS_NOME = "fw._http._tcp.local."
+MDNS_DOMINIO = "fs.local."
+MDNS_NOME = "fs._http._tcp.local."
 
 # Zeroconf persistente
 zeroconf = Zeroconf()
@@ -1279,7 +1279,7 @@ def run_console_mode():
     print("✅ Servidor iniciado com sucesso!")
     print(f"🌐 Acesse: {url}")
     print(f"📱 QR Code: static/qrcode.png")
-    print(f"🔗 mDNS: http://fw.local:{porta}")
+    print(f"🔗 mDNS: http://fs.local:{porta}")
     print("=" * 50)
     print("🌐 Abrindo navegador automaticamente...")
     
