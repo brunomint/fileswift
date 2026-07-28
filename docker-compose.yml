@@ -1,0 +1,15 @@
+services:
+  fileswift:
+    container_name: fileswift
+    build:
+      context: .
+      dockerfile: Dockerfile
+    network_mode: host
+
+    environment:
+      FILESWIFT_DATA_DIR: /data
+
+    volumes:
+      - ./data:/data
+
+    restart: unless-stopped

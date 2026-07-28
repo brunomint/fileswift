@@ -58,6 +58,66 @@ pip install -r requirements.txt
 python3 main.py --console
 ```
 
+## 🐳 Instalação com Docker
+
+O FileSwift também pode ser executado utilizando Docker, facilitando a instalação e o isolamento das dependências.
+
+### Pré-requisitos
+
+* Docker
+* Docker Compose (v2 ou superior)
+
+### Executando
+
+Clone o repositório e acesse a pasta do projeto:
+
+```bash
+git clone https://github.com/brunomint/fileswift.git
+cd fileswift
+```
+
+Inicie a aplicação:
+
+```bash
+docker compose up -d --build
+```
+
+Após a inicialização, o FileSwift estará disponível em:
+
+```text
+http://localhost:5678
+```
+
+### Persistência dos dados
+
+Todos os dados do FileSwift são armazenados no diretório `data/`, montado automaticamente como volume pelo `docker-compose.yml`.
+
+Isso inclui:
+
+* `config.json`
+* `fileswift.db`
+* Uploads de arquivos
+* Anexos dos Textos Rápidos
+* Demais dados persistentes da aplicação
+
+Dessa forma, atualizar ou recriar o container **não remove seus arquivos nem suas configurações**.
+
+### Atualizando
+
+Após atualizar o código-fonte do projeto, execute:
+
+```bash
+docker compose up -d --build
+```
+
+O Docker reconstruirá a imagem e iniciará a versão mais recente, preservando todos os dados armazenados no diretório `data/`.
+
+### Parando a aplicação
+
+```bash
+docker compose down
+```
+
 ## 🌐 Como acessar
 
 Depois de iniciado, o servidor fica disponível em:

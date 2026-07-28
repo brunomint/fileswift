@@ -28,3 +28,5 @@ windows/Output/
 .DS_Store
 Thumbs.db
 .claude/
+
+data/

@@ -1,0 +1,42 @@
+.git
+.github
+
+# Docker
+Dockerfile
+docker-compose.yml
+docker-compose.dev.yml
+
+# Python environments
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Testing / type checking
+.pytest_cache/
+.mypy_cache/
+
+# IDEs
+.idea/
+.vscode/
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+*.log
+
+# Application data
+data/
+fileswift.db
+config.json
+
+# Downloads / attachments
+static/download/
+textos_anexos/
