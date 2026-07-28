@@ -102,3 +102,7 @@ Lá dentro: `fileswift.db` (textos rápidos), `static/download/` (seus arquivos)
 ## 📄 Licença
 
 MIT — veja o arquivo [LICENSE](LICENSE).
+
+## ☕ Apoie o projeto
+
+Se o FileSwift foi útil pra você, considere apoiar em [ko-fi.com/brunofragosodealmeida](https://ko-fi.com/brunofragosodealmeida).
