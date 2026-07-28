@@ -30,7 +30,8 @@ class FileSwiftGUI:
             'text2': '#b0b0b0',
             'success': '#4ade80',
             'warning': '#fbbf24',
-            'error': '#f87171'
+            'error': '#f87171',
+            'blue': '#60a5fa'  # Azul usado no link
         }
         
         # Altura inicial respeita o tamanho real da tela
@@ -81,6 +82,7 @@ class FileSwiftGUI:
         bg3 = self.colors['bg3']
         accent = self.colors['accent']
         text = self.colors['text']
+        blue = self.colors['blue']
         
         # Estilo para frames
         style.configure('Modern.TFrame', background=bg)
@@ -102,7 +104,7 @@ class FileSwiftGUI:
                        background=bg2)
         style.configure('URL.TLabel', 
                        font=('Segoe UI', 12, 'bold'), 
-                       foreground='#60a5fa',
+                       foreground=blue,  # Usando a cor azul
                        background=bg2)
         style.configure('Info.TLabel', 
                        font=('Segoe UI', 9), 
@@ -124,6 +126,19 @@ class FileSwiftGUI:
                        focuscolor='none')
         style.map('Action.TButton',
                  background=[('active', '#c73550'), ('pressed', '#b02e45')],
+                 foreground=[('active', 'white'), ('pressed', 'white')])
+        
+        # NOVO: Estilo azul para o botão Copiar URL (mesma cor do link)
+        style.configure('Blue.TButton',
+                       font=('Segoe UI', 11, 'bold'),
+                       padding=(20, 12),
+                       background=blue,  # Usando a mesma cor azul do link
+                       foreground='white',
+                       borderwidth=0,
+                       focusthickness=0,
+                       focuscolor='none')
+        style.map('Blue.TButton',
+                 background=[('active', '#3b82f6'), ('pressed', '#2563eb')],
                  foreground=[('active', 'white'), ('pressed', 'white')])
         
         style.configure('Success.TButton',
@@ -280,9 +295,10 @@ class FileSwiftGUI:
                                          state='disabled')
         self.open_browser_btn.pack(side=tk.LEFT, padx=(0, 10), expand=True, fill=tk.X)
         
+        # ALTERAÇÃO: Botão Copiar URL agora usa o estilo 'Blue.TButton'
         self.copy_url_btn = ttk.Button(button_container, text="📋 Copiar URL", 
                                      command=self.copiar_url, 
-                                     style='Action.TButton',
+                                     style='Blue.TButton',  # Mudança aqui
                                      state='disabled')
         self.copy_url_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
         
