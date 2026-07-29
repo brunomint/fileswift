@@ -1130,12 +1130,15 @@ def before_request():
 
 
 # Endpoints acessíveis sem estar logado: as próprias telas de login/configuração
-# inicial, e os dois assets fixos (logo e QR code) que elas precisam carregar.
+# inicial, os dois assets fixos (logo e QR code) que elas precisam carregar, e
+# api_stats (a janela tkinter consulta essa rota localmente, sem sessão, pra
+# mostrar tempo ativo/dispositivos/acessos/rede — só dados agregados, nenhum
+# arquivo ou conteúdo pessoal, por isso é seguro deixar aberta).
 # Note que NÃO inclui o endpoint 'static' genérico do Flask — ele foi
 # desativado de propósito (static_folder=None) porque MEDIA_FOLDER mora dentro
 # de static/, e deixar o endpoint automático ligado exporia todos os arquivos
 # do usuário sem autenticação nenhuma.
-ENDPOINTS_ISENTOS = {'login', 'setup', 'static_logo', 'static_qrcode'}
+ENDPOINTS_ISENTOS = {'login', 'setup', 'static_logo', 'static_qrcode', 'api_stats'}
 
 
 @app.before_request
