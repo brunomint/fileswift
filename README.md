@@ -125,6 +125,8 @@ Depois de iniciado, o servidor fica disponível em:
 - **De outros dispositivos na mesma rede:** `http://<IP-da-máquina>:5678` ou `http://fs.local:5678`
 - **Pelo celular:** escaneie o QR Code exibido na página inicial
 
+Rodando o FileSwift em mais de uma máquina na mesma rede? Cada uma precisa de um nome próprio (mDNS não permite duas máquinas anunciando `fs.local` ao mesmo tempo — a segunda simplesmente não registra). Troque em **Configurações** na barra lateral da galeria.
+
 ## 🗂 Onde ficam os seus dados
 
 Nada é gravado dentro da pasta de instalação. Tudo fica numa pasta própria, separada por dispositivo:

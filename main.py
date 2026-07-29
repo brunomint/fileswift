@@ -28,10 +28,6 @@ app = Flask(__name__, static_folder=None)
 
 porta = 5678
 
-# Nome do mDNS
-MDNS_DOMINIO = "fs.local."
-MDNS_NOME = "fs._http._tcp.local."
-
 # Zeroconf persistente
 zeroconf = Zeroconf()
 servico_mdns = None  # Guardará o último serviço registrado
@@ -105,11 +101,62 @@ def verificar_senha(senha):
     return check_password_hash(CONFIG.get('senha_hash', ''), senha)
 
 
+# --- Nome mDNS configurável por máquina ---
+# Padrão "fs" preserva o comportamento de sempre (fs.local) pra quem só roda
+# uma instância. Fica configurável pra quem roda o FileSwift em mais de uma
+# máquina na mesma rede — mDNS não permite duas máquinas anunciando o mesmo
+# nome (a segunda simplesmente falha em registrar), então cada uma precisa
+# de um nome próprio (ex: "sala", "escritorio").
+MDNS_NOME_REGEX = re.compile(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$')
+
+
+def obter_mdns_nome():
+    return CONFIG.get('mdns_nome', 'fs')
+
+
+def obter_mdns_dominio():
+    """FQDN com ponto final, no formato exigido pelo campo 'server' do zeroconf."""
+    return f"{obter_mdns_nome()}.local."
+
+
+def obter_mdns_host():
+    """Endereço pra exibir pro usuário (sem o ponto final técnico do DNS)."""
+    return f"{obter_mdns_nome()}.local"
+
+
+def obter_mdns_servico_nome():
+    return f"{obter_mdns_nome()}._http._tcp.local."
+
+
+def mdns_nome_valido(nome):
+    return bool(MDNS_NOME_REGEX.fullmatch(nome))
+
+
+def definir_mdns_nome(nome):
+    CONFIG['mdns_nome'] = nome
+    salvar_config(CONFIG)
+
+
 MEDIA_FOLDER = os.path.join(DATA_DIR, 'static', 'download')
 UPLOAD_FOLDER = os.path.join(MEDIA_FOLDER, 'uploads')  # pasta padrão de upload
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # garante que exista a pasta
 texto = "🚀 Acessar FileSwift"  # Texto do link
+
+
+def resolver_caminho_seguro(caminho_relativo, base=None):
+    """Junta `caminho_relativo` (vindo de URL ou de campo de formulário) a `base`
+    (por padrão MEDIA_FOLDER) e confere que o resultado não escapa de `base` via
+    sequências como '..' — proteção contra path traversal. Retorna None se o
+    caminho tentar sair da pasta base; caso contrário, retorna o caminho absoluto
+    já resolvido, pronto pra usar."""
+    if base is None:
+        base = MEDIA_FOLDER
+    base_real = os.path.realpath(base)
+    caminho_resolvido = os.path.realpath(os.path.join(base, caminho_relativo or ''))
+    if caminho_resolvido != base_real and not caminho_resolvido.startswith(base_real + os.sep):
+        return None
+    return caminho_resolvido
 
 # --- Textos Rápidos (notas coladas, ex: confirmações de pedido) ---
 DB_PATH = os.path.join(DATA_DIR, 'fileswift.db')
@@ -368,11 +415,11 @@ def allowed_file(filename):
 @app.route('/upload/<path:pasta>', methods=['GET', 'POST'])
 def upload(pasta):
     print(f"🔍 Upload iniciado - Pasta: '{pasta}', Método: {request.method}")
-    
-    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
+
+    caminho_pasta = resolver_caminho_seguro(pasta)
     print(f"📁 Caminho da pasta: {caminho_pasta}")
-    
-    if not os.path.exists(caminho_pasta):
+
+    if caminho_pasta is None or not os.path.exists(caminho_pasta):
         print(f"❌ Pasta não existe: {caminho_pasta}")
         abort(404)
 
@@ -475,7 +522,7 @@ def static_qrcode():
 def index():
     link = gerar_link()
     print(f"Link gerado: {link}")
-    return render_template('index.html', link=link)
+    return render_template('index.html', link=link, mdns_dominio=obter_mdns_host(), porta=porta)
 
 @app.route('/test-upload')
 def test_upload():
@@ -494,8 +541,8 @@ def browser():
 @app.route('/galeria/', defaults={'pasta': ''})
 @app.route('/galeria/<path:pasta>')
 def galeria(pasta):
-    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
-    if not os.path.exists(caminho_pasta):
+    caminho_pasta = resolver_caminho_seguro(pasta)
+    if caminho_pasta is None or not os.path.exists(caminho_pasta):
         abort(404)
     
     arquivos = os.listdir(caminho_pasta)
@@ -527,8 +574,8 @@ def galeria(pasta):
 @app.route('/api/galeria_assinatura/<path:pasta>')
 def api_galeria_assinatura(pasta):
     """Retorna um 'hash' do conteúdo da pasta, usado pela galeria para detectar mudanças (upload/apagar) feitas por outro dispositivo e se atualizar sozinha."""
-    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
-    if not os.path.exists(caminho_pasta):
+    caminho_pasta = resolver_caminho_seguro(pasta)
+    if caminho_pasta is None or not os.path.exists(caminho_pasta):
         abort(404)
 
     entradas = []
@@ -547,17 +594,15 @@ def api_galeria_assinatura(pasta):
 
 @app.route('/media/<path:filepath>')
 def media(filepath):
-    caminho_arquivo = os.path.join(MEDIA_FOLDER, filepath)
-    if not os.path.exists(caminho_arquivo):
+    caminho_arquivo = resolver_caminho_seguro(filepath)
+    if caminho_arquivo is None or not os.path.exists(caminho_arquivo):
         abort(404)
-    pasta = os.path.dirname(filepath)
-    nome_arquivo = os.path.basename(filepath)
-    return send_from_directory(os.path.join(MEDIA_FOLDER, pasta), nome_arquivo)
-    
+    return send_from_directory(os.path.dirname(caminho_arquivo), os.path.basename(caminho_arquivo))
+
 @app.route('/download_pasta/<path:pasta>')
 def download_pasta(pasta):
-    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
-    if not os.path.exists(caminho_pasta) or not os.path.isdir(caminho_pasta):
+    caminho_pasta = resolver_caminho_seguro(pasta)
+    if caminho_pasta is None or not os.path.isdir(caminho_pasta):
         abort(404)
 
     # Cria um arquivo zip na memória
@@ -584,8 +629,10 @@ def criar_pasta(pasta):
         flash('Nome da pasta não pode ser vazio')
         return redirect(request.referrer)
 
-    caminho_base = os.path.join(MEDIA_FOLDER, pasta) if pasta else MEDIA_FOLDER
-    caminho_nova_pasta = os.path.join(caminho_base, nome_pasta)
+    caminho_nova_pasta = resolver_caminho_seguro(os.path.join(pasta, nome_pasta) if pasta else nome_pasta)
+    if caminho_nova_pasta is None:
+        flash('Nome de pasta inválido.')
+        return redirect(request.referrer)
 
     try:
         os.makedirs(caminho_nova_pasta, exist_ok=True)
@@ -599,9 +646,9 @@ def criar_pasta(pasta):
 @app.route('/copiar/<path:filepath>', methods=['POST'])
 def copiar(filepath):
     """Copia arquivo ou pasta para área de transferência."""
-    caminho_origem = os.path.join(MEDIA_FOLDER, filepath)
-    
-    if not os.path.exists(caminho_origem):
+    caminho_origem = resolver_caminho_seguro(filepath)
+
+    if caminho_origem is None or not os.path.exists(caminho_origem):
         flash('Arquivo ou pasta não encontrado.')
         return redirect(request.referrer)
     
@@ -624,20 +671,22 @@ def colar():
     
     clip = session['clipboard']
     pasta_destino = request.form.get('pasta_destino', '')
-    
-    caminho_origem = os.path.join(MEDIA_FOLDER, clip['path'])
+
+    caminho_origem = resolver_caminho_seguro(clip['path'])
     nome_item = clip['nome']
-    
-    if pasta_destino:
-        caminho_destino = os.path.join(MEDIA_FOLDER, pasta_destino, nome_item)
-    else:
-        caminho_destino = os.path.join(MEDIA_FOLDER, nome_item)
-    
-    if not os.path.exists(caminho_origem):
+
+    destino_relativo = os.path.join(pasta_destino, nome_item) if pasta_destino else nome_item
+    caminho_destino = resolver_caminho_seguro(destino_relativo)
+
+    if caminho_destino is None:
+        flash('Pasta de destino inválida.')
+        return redirect(request.referrer)
+
+    if caminho_origem is None or not os.path.exists(caminho_origem):
         flash('Arquivo original não encontrado.')
         session.pop('clipboard', None)
         return redirect(request.referrer)
-    
+
     if os.path.exists(caminho_destino):
         flash(f'Já existe um item com o nome "{nome_item}" no destino.')
         return redirect(request.referrer)
@@ -657,9 +706,9 @@ def colar():
 
 @app.route('/apagar_pasta/<path:pasta>', methods=['POST'])
 def apagar_pasta(pasta):
-    caminho_pasta = os.path.join(MEDIA_FOLDER, pasta)
+    caminho_pasta = resolver_caminho_seguro(pasta)
 
-    if not os.path.exists(caminho_pasta) or not os.path.isdir(caminho_pasta):
+    if caminho_pasta is None or not os.path.isdir(caminho_pasta):
         flash('Pasta não encontrada.')
         return redirect(request.referrer)
 
@@ -675,9 +724,9 @@ def apagar_pasta(pasta):
 
 @app.route('/apagar_arquivo/<path:filepath>', methods=['POST'])
 def apagar_arquivo(filepath):
-    caminho_arquivo = os.path.join(MEDIA_FOLDER, filepath)
+    caminho_arquivo = resolver_caminho_seguro(filepath)
 
-    if not os.path.exists(caminho_arquivo) or not os.path.isfile(caminho_arquivo):
+    if caminho_arquivo is None or not os.path.isfile(caminho_arquivo):
         flash('Arquivo não encontrado.')
         return redirect(request.referrer)
 
@@ -707,9 +756,11 @@ def apagar_multiplos():
     
     for arquivo_path in arquivos_selecionados:
         try:
-            caminho_completo = os.path.join(MEDIA_FOLDER, arquivo_path)
-            
-            if os.path.exists(caminho_completo):
+            caminho_completo = resolver_caminho_seguro(arquivo_path)
+
+            if caminho_completo is None:
+                erros.append(f'❌ {os.path.basename(arquivo_path)} (caminho inválido)')
+            elif os.path.exists(caminho_completo):
                 if os.path.isdir(caminho_completo):
                     shutil.rmtree(caminho_completo)
                     apagados.append(f'📁 {os.path.basename(arquivo_path)}')
@@ -837,18 +888,20 @@ def listar_pastas():
 def mover_arquivo(filepath):
     """Move um arquivo ou pasta para outra pasta"""
     pasta_destino = request.form.get('pasta_destino', '')
-    
+
     # Caminhos de origem e destino
-    caminho_origem = os.path.join(MEDIA_FOLDER, filepath)
+    caminho_origem = resolver_caminho_seguro(filepath)
     nome_item = os.path.basename(filepath)
-    
-    if pasta_destino:
-        caminho_destino = os.path.join(MEDIA_FOLDER, pasta_destino, nome_item)
-    else:
-        caminho_destino = os.path.join(MEDIA_FOLDER, nome_item)
-    
+
+    destino_relativo = os.path.join(pasta_destino, nome_item) if pasta_destino else nome_item
+    caminho_destino = resolver_caminho_seguro(destino_relativo)
+
+    if caminho_destino is None:
+        flash('Pasta de destino inválida.')
+        return redirect(request.referrer)
+
     # Verificar se arquivo/pasta existe
-    if not os.path.exists(caminho_origem):
+    if caminho_origem is None or not os.path.exists(caminho_origem):
         flash('Arquivo ou pasta não encontrado.')
         return redirect(request.referrer)
     
@@ -1109,16 +1162,17 @@ def registrar_mdns(ip_str):
             zeroconf.unregister_service(servico_mdns)
         except Exception as e:
             print(f"⚠️ Erro ao remover mDNS antigo: {e}")
+    dominio = obter_mdns_dominio()
     servico_mdns = ServiceInfo(
         "_http._tcp.local.",
-        MDNS_NOME,
+        obter_mdns_servico_nome(),
         addresses=[ip_bytes],
         port=porta,
         properties={},
-        server=MDNS_DOMINIO,
+        server=dominio,
     )
     zeroconf.register_service(servico_mdns)
-    print(f"🔗 mDNS registrado: http://{MDNS_DOMINIO}:{porta}")
+    print(f"🔗 mDNS registrado: http://{obter_mdns_host()}:{porta}")
 
 # Removido @app.before_first_request (obsoleto no Flask 2.2+)
 # A inicialização será feita na função run_flask()
@@ -1243,6 +1297,31 @@ def trocar_senha():
 
     return render_template('login.html', modo='trocar_senha')
 
+
+@app.route('/configuracoes', methods=['GET', 'POST'])
+def configuracoes():
+    if request.method == 'POST':
+        nome = request.form.get('mdns_nome', '').strip().lower()
+
+        if not mdns_nome_valido(nome):
+            flash('Nome inválido. Use só letras minúsculas, números e hífen, começando e terminando com letra ou número (até 63 caracteres).')
+            return redirect(url_for('configuracoes'))
+
+        definir_mdns_nome(nome)
+        # Reaplica o mDNS na hora com o novo nome, sem precisar reiniciar o servidor.
+        if ip_atual:
+            registrar_mdns(ip_atual)
+        flash('Nome atualizado! Já está em uso na rede.')
+        return redirect(url_for('configuracoes'))
+
+    return render_template(
+        'configuracoes.html',
+        mdns_nome=obter_mdns_nome(),
+        mdns_dominio=obter_mdns_host(),
+        porta=porta,
+    )
+
+
 def monitorar_ip_e_registrar():
     global ip_atual
     while True:
@@ -1282,7 +1361,7 @@ def run_console_mode():
     print("✅ Servidor iniciado com sucesso!")
     print(f"🌐 Acesse: {url}")
     print(f"📱 QR Code: static/qrcode.png")
-    print(f"🔗 mDNS: http://fs.local:{porta}")
+    print(f"🔗 mDNS: http://{obter_mdns_host()}:{porta}")
     print("=" * 50)
     print("🌐 Abrindo navegador automaticamente...")
     

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <title>Configurações — FileSwift</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      color: #fff;
+      background:
+        radial-gradient(ellipse at top, #1e3a8a 0%, #1e1b4b 50%, #0f0f23 100%),
+        radial-gradient(ellipse at bottom, #312e81 0%, #1e1b4b 50%, #0f0f23 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(26, 32, 44, 0.75);
+      border: 1px solid #4a5568;
+      border-radius: 14px;
+      padding: 32px 28px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+    .logo {
+      display: block;
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      border-radius: 14px;
+      object-fit: contain;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    h1 {
+      font-size: 1.15rem;
+      margin: 0 0 6px;
+      text-align: center;
+      color: #90cdf4;
+    }
+    .subtitulo {
+      font-size: 0.85rem;
+      color: #a0aec0;
+      text-align: center;
+      margin: 0 0 20px;
+    }
+    .flash {
+      background: rgba(252, 129, 129, 0.15);
+      border: 1px solid #fc8181;
+      color: #feb2b2;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+    }
+    .atual {
+      background: rgba(99, 179, 237, 0.12);
+      border: 1px solid #4a5568;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      color: #cbd5e0;
+    }
+    .atual strong {
+      color: #90cdf4;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #cbd5e0;
+      margin-bottom: 6px;
+    }
+    .prefixo-input {
+      display: flex;
+      align-items: stretch;
+      margin-bottom: 6px;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: rgba(45, 55, 72, 0.8);
+      border: 1px solid #4a5568;
+      color: #fff;
+      border-radius: 8px 0 0 8px;
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #63b3ed;
+      box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.15);
+    }
+    .sufixo {
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      background: rgba(45, 55, 72, 0.5);
+      border: 1px solid #4a5568;
+      border-left: none;
+      border-radius: 0 8px 8px 0;
+      color: #a0aec0;
+      font-size: 0.95rem;
+      white-space: nowrap;
+    }
+    .dica {
+      font-size: 0.78rem;
+      color: #718096;
+      margin: 0 0 18px;
+    }
+    .btn-entrar {
+      width: 100%;
+      margin-top: 6px;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .btn-entrar:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .voltar {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      color: #a0aec0;
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    .voltar:hover {
+      color: #cbd5e0;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="/static/logo.png" alt="FileSwift" class="logo">
+    <h1>Configurações</h1>
+    <p class="subtitulo">Nome usado pra acessar este FileSwift na rede local.</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="flash">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="atual">
+      Endereço atual: <strong>http://{{ mdns_dominio }}:{{ porta }}</strong>
+    </div>
+
+    <form method="POST">
+      <label for="mdns_nome">Nome na rede</label>
+      <div class="prefixo-input">
+        <input type="text" id="mdns_nome" name="mdns_nome" value="{{ mdns_nome }}" maxlength="63" required autofocus>
+        <span class="sufixo">.local</span>
+      </div>
+      <p class="dica">Só letras minúsculas, números e hífen. Se você roda o FileSwift em mais de uma máquina na mesma rede, cada uma precisa de um nome diferente (ex: "sala", "escritorio") — dois com o mesmo nome disputam o mesmo endereço.</p>
+      <button type="submit" class="btn-entrar"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </form>
+    <a href="{{ url_for('index') }}" class="voltar"><i class="fa-solid fa-arrow-left"></i> Voltar</a>
+  </div>
+</body>
+</html>

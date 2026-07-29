@@ -12,7 +12,7 @@ import io
 import socket
 import subprocess
 import signal
-from main import app, porta, obter_endereco_ip, criar_qrcode_simples, monitorar_ip_e_registrar
+from main import app, porta, obter_endereco_ip, criar_qrcode_simples, monitorar_ip_e_registrar, obter_mdns_host
 
 class FileSwiftGUI:
     def __init__(self):
@@ -173,7 +173,20 @@ class FileSwiftGUI:
                        focuscolor='none')
         style.map('Warning.TButton',
                  background=[('active', '#d97706'), ('pressed', '#b45309')])
-        
+
+        # Estilo cinza-azulado para o botão Configurações (diferente do azul do Copiar URL)
+        style.configure('Settings.TButton',
+                       font=('Segoe UI', 11, 'bold'),
+                       padding=(20, 12),
+                       background='#64748b',
+                       foreground='white',
+                       borderwidth=0,
+                       focusthickness=0,
+                       focuscolor='none')
+        style.map('Settings.TButton',
+                 background=[('active', '#475569'), ('pressed', '#334155')],
+                 foreground=[('active', 'white'), ('pressed', 'white')])
+
         # Estilo para LabelFrame
         style.configure('Card.TLabelframe',
                        background=bg2,
@@ -281,9 +294,12 @@ class FileSwiftGUI:
                                   style='Card.TLabelframe', padding="15")
         url_frame.pack(fill=tk.X, pady=(0, 15))
         
-        self.url_label = ttk.Label(url_frame, text="Aguardando servidor...", 
+        self.url_label = ttk.Label(url_frame, text="Aguardando servidor...",
                                  style='URL.TLabel')
-        self.url_label.pack(pady=(0, 15))
+        self.url_label.pack(pady=(0, 4))
+
+        self.mdns_label = ttk.Label(url_frame, text="", style='Info.TLabel')
+        self.mdns_label.pack(pady=(0, 15))
         
         # Botões de ação - maiores
         button_container = ttk.Frame(url_frame, style='Dark.TFrame')
@@ -301,7 +317,13 @@ class FileSwiftGUI:
                                      style='Blue.TButton',  # Mudança aqui
                                      state='disabled')
         self.copy_url_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
-        
+
+        self.config_btn = ttk.Button(button_container, text="⚙️ Configurações",
+                                   command=self.abrir_configuracoes,
+                                   style='Settings.TButton',
+                                   state='disabled')
+        self.config_btn.pack(side=tk.LEFT, padx=(10, 0), expand=True, fill=tk.X)
+
         # ===== QR CODE =====
         qr_frame = ttk.LabelFrame(main_frame, text=" 📱 QR Code - Acesso Móvel ", 
                                  style='Card.TLabelframe', padding="15")
@@ -319,11 +341,11 @@ class FileSwiftGUI:
                                    style='Card.TLabelframe', padding="12")
         info_frame.pack(fill=tk.X, pady=(0, 15))
         
-        info_text = """📁 Pasta: static/download/\n🌐 Rede local\n📱 QR Code móvel\n🔄 mDNS: fs.local"""
-        info_label = ttk.Label(info_frame, text=info_text, style='Info.TLabel', 
+        info_text = f"""📁 Pasta: static/download/\n🌐 Rede local\n📱 QR Code móvel\n🔄 mDNS: {obter_mdns_host()}"""
+        self.info_label = ttk.Label(info_frame, text=info_text, style='Info.TLabel',
                              justify=tk.LEFT)
-        info_label.pack(anchor='w')
-        
+        self.info_label.pack(anchor='w')
+
         # ===== ESTATÍSTICAS =====
         stats_frame = ttk.LabelFrame(main_frame, text=" 📊 Atividade do Servidor ", 
                                     style='Card.TLabelframe', padding="15")
@@ -468,9 +490,11 @@ class FileSwiftGUI:
         
         self.url_atual = f"http://{obter_endereco_ip(True)}"
         self.url_label.config(text=self.url_atual)
-        
+        self.mdns_label.config(text=f"🔄 http://{obter_mdns_host()}:{porta}")
+
         self.open_browser_btn.config(state='normal')
         self.copy_url_btn.config(state='normal')
+        self.config_btn.config(state='normal')
         self.stop_btn.config(state='normal')
         self.restart_btn.config(state='normal')
         
@@ -507,6 +531,11 @@ class FileSwiftGUI:
         if self.url_atual:
             webbrowser.open(self.url_atual)
     
+    def abrir_configuracoes(self):
+        """Abrir a tela de Configurações (nome mDNS) no navegador"""
+        if self.url_atual:
+            webbrowser.open(f"{self.url_atual}/configuracoes")
+
     def copiar_url(self):
         """Copiar URL para clipboard"""
         if self.url_atual:
@@ -526,6 +555,7 @@ class FileSwiftGUI:
                                    foreground=self.colors['error'])
             self.open_browser_btn.config(state='disabled')
             self.copy_url_btn.config(state='disabled')
+            self.config_btn.config(state='disabled')
             self.stop_btn.config(state='disabled')
             self.restart_btn.config(state='normal')
             self.qr_label.config(image='', text="QR Code indisponível")
@@ -624,7 +654,11 @@ class FileSwiftGUI:
     
     def atualizar_estatisticas(self):
         """Atualizar estatísticas do servidor em tempo real"""
+        self.info_label.config(
+            text=f"📁 Pasta: static/download/\n🌐 Rede local\n📱 QR Code móvel\n🔄 mDNS: {obter_mdns_host()}"
+        )
         if self.servidor_rodando:
+            self.mdns_label.config(text=f"🔄 http://{obter_mdns_host()}:{porta}")
             try:
                 response = requests.get(f"http://localhost:{porta}/api/stats", timeout=2)
                 if response.status_code == 200:
