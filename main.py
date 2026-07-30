@@ -1028,6 +1028,37 @@ def textos_novo():
     return render_template('textos_form.html')
 
 
+@app.route('/textos/<int:id>/editar', methods=['GET', 'POST'])
+def textos_editar(id):
+    conn = get_db_connection()
+    texto = conn.execute('SELECT * FROM textos_rapidos WHERE id = ?', (id,)).fetchone()
+    if not texto:
+        conn.close()
+        abort(404)
+
+    if request.method == 'POST':
+        conteudo = request.form.get('conteudo', '').strip()
+        if not conteudo:
+            conn.close()
+            flash('O texto não pode ser vazio.')
+            return redirect(url_for('textos_editar', id=id))
+
+        primeira_linha = next((l.strip() for l in conteudo.splitlines() if l.strip()), 'Texto sem título')
+        titulo = primeira_linha[:80]
+
+        conn.execute('UPDATE textos_rapidos SET titulo = ?, conteudo = ? WHERE id = ?', (titulo, conteudo, id))
+
+        salvar_anexos_pdf(conn, id, request.files.getlist('anexos'))
+
+        conn.commit()
+        conn.close()
+
+        return redirect(url_for('textos_ver', id=id))
+
+    conn.close()
+    return render_template('textos_form.html', texto=texto)
+
+
 @app.route('/textos/<int:id>')
 def textos_ver(id):
     conn = get_db_connection()

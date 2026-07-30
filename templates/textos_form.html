@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="/static/logo.png">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
-  <title>Novo Texto Rápido</title>
+  <title>{{ 'Editar Texto Rápido' if texto else 'Novo Texto Rápido' }}</title>
   <style>
     body {
       margin: 0;
@@ -128,8 +128,8 @@
 </head>
 <body>
   <div class="topo">
-    <h1><i class="fa-solid fa-note-sticky"></i> Novo Texto Rápido</h1>
-    <a href="{{ url_for('textos_lista') }}" class="voltar"><i class="fa-solid fa-arrow-left"></i> Voltar</a>
+    <h1><i class="fa-solid fa-note-sticky"></i> {{ 'Editar Texto Rápido' if texto else 'Novo Texto Rápido' }}</h1>
+    <a href="{{ url_for('textos_ver', id=texto['id']) if texto else url_for('textos_lista') }}" class="voltar"><i class="fa-solid fa-arrow-left"></i> Voltar</a>
   </div>
 
   <div class="conteudo">
@@ -142,7 +142,7 @@
     {% endwith %}
 
     <form method="POST" enctype="multipart/form-data">
-      <textarea name="conteudo" placeholder="Cole ou digite o texto aqui..." autofocus required>{{ request.form.get('conteudo', '') }}</textarea>
+      <textarea name="conteudo" placeholder="Cole ou digite o texto aqui..." autofocus required>{{ request.form.get('conteudo', texto['conteudo'] if texto else '') }}</textarea>
       <div class="dica">E-mails, CPF, CEP e valores em R$ serão destacados automaticamente na visualização.</div>
 
       <div class="anexos-campo" id="anexosDropzone">
@@ -150,8 +150,11 @@
         <p id="anexosDropzoneTexto">Clique aqui ou arraste os PDFs para esta área</p>
         <input type="file" id="anexos" name="anexos" accept=".pdf,application/pdf" multiple>
       </div>
+      {% if texto %}
+        <div class="dica">Anexos já existentes ficam intactos — PDFs escolhidos aqui são adicionados aos já salvos. Pra apagar um anexo, faça isso na tela de visualização.</div>
+      {% endif %}
 
-      <button type="submit" class="btn-salvar"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+      <button type="submit" class="btn-salvar"><i class="fa-solid fa-floppy-disk"></i> {{ 'Salvar alterações' if texto else 'Salvar' }}</button>
     </form>
   </div>
 

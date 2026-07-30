@@ -218,6 +218,7 @@
     <div class="acoes">
       <a href="{{ url_for('textos_lista') }}" class="voltar"><i class="fa-solid fa-arrow-left"></i> Voltar</a>
       <button type="button" class="btn-copiar" onclick="copiarTexto()"><i class="fa-regular fa-copy"></i> Copiar</button>
+      <a href="{{ url_for('textos_editar', id=texto['id']) }}" class="btn-copiar"><i class="fa-solid fa-pen"></i> Editar</a>
       <form method="POST" action="{{ url_for('textos_apagar', id=texto['id']) }}" onsubmit="return confirm('Tem certeza que deseja apagar este texto?');">
         <button type="submit" class="btn-apagar"><i class="fa-solid fa-trash"></i> Apagar</button>
       </form>
