@@ -1,0 +1,6 @@
+# Dependências só de teste. Ficam no alvo "test" do Dockerfile e não entram
+# na imagem de produção.
+#
+# pytest 8.3.5 é a última versão que roda no Python 3.8, que é o piso aceito
+# pelo install.sh. Subir daqui derruba o teste no piso.
+pytest==8.3.5

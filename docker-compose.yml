@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: prod
     network_mode: host
 
     environment:
@@ -13,3 +14,30 @@ services:
       - ./data:/data
 
     restart: unless-stopped
+
+  # Roda a suíte: docker compose run --rm test
+  # Fica num profile para não subir junto com o app no docker compose up. 
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+    profiles:
+      - test
+
+    environment:
+      FILESWIFT_DATA_DIR: /data
+
+    # Monta o código para editar teste não pedir rebuild.
+    #
+    # O caminho tem que ser o do host, porque é o Docker dele que executa o
+    # mount. Rodando de dentro do devcontainer, LOCAL_WORKSPACE_FOLDER traz esse
+    # caminho (o devcontainer.json define). Rodando direto do host, a variável
+    # não existe e o "." já é o caminho certo.
+    volumes:
+      - ${LOCAL_WORKSPACE_FOLDER:-.}:/app
+
+    # /data aqui é tmpfs: existe só na memória e é jogado fora no fim,
+    # então teste que mexe em disco não alcança nada de verdade.
+    tmpfs:
+      - /data
