@@ -160,7 +160,29 @@ Lá dentro: `fileswift.db` (textos rápidos), `static/download/` (seus arquivos)
 - `main.py` — servidor Flask (toda a lógica de rotas, banco SQLite, autenticação)
 - `gui_launcher.py` — janela tkinter opcional (o app funciona igual sem ela, abrindo direto no navegador)
 - `templates/` — HTML (Jinja2), um arquivo por tela
+- `tests/` — suíte de testes (pytest)
 - `install.sh`, `build-deb.sh`, `fileswift.spec` + `.github/workflows/build-windows.yml` — empacotamento por plataforma
+
+### Rodando os testes
+
+Com Docker, sem instalar nada na máquina:
+
+```bash
+docker compose run --rm test
+```
+
+O serviço `test` fica num profile separado, então não sobe junto no `docker compose up`. O código é montado como volume para que editar um teste não exija rebuild. O `/data` do container é `tmpfs`, existe só na memória e é descartado no fim, então nenhum teste alcança dados reais.
+
+Direto na máquina, num virtualenv:
+
+```bash
+pip install -r requirements.txt -r requirements.dev.txt
+pytest
+```
+
+Um detalhe importante do [tests/conftest.py](tests/conftest.py): importar o `main.py` está gerando efeito colaterais, pois a base de código é acoplada, cria a pasta de dados, escreve o `config.json`, abre o banco e sobe o Zeroconf, tudo no momento do import. Por isso o `conftest.py` aponta `FILESWIFT_DATA_DIR` para uma pasta temporária **antes** do import. Se você escrever um teste novo que importe o `main` por fora desse caminho, ele vai mexer nos dados reais de quem está rodando.
+
+No CI, o workflow [Testes](.github/workflows/testes.yml) roda a suíte em todo push e pull request, e o build do instalador Windows depende dele — se a suíte quebrar, nenhum instalador é publicado.
 
 ## 📄 Licença
 
