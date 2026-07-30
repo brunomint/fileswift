@@ -179,7 +179,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             titulo TEXT NOT NULL,
             conteudo TEXT NOT NULL,
-            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     conn.execute('''
@@ -191,6 +192,17 @@ def init_db():
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # Migração: banco de instalação já existente pode não ter a coluna
+    # atualizado_em (adicionada pra detectar edição feita em outro dispositivo).
+    colunas = [c['name'] for c in conn.execute('PRAGMA table_info(textos_rapidos)').fetchall()]
+    if 'atualizado_em' not in colunas:
+        # SQLite não aceita DEFAULT não-constante (CURRENT_TIMESTAMP) num ALTER TABLE ADD COLUMN,
+        # por isso o valor pras linhas existentes é preenchido explicitamente logo abaixo; novas
+        # linhas sempre recebem atualizado_em explicitamente nas próprias queries de INSERT/UPDATE.
+        conn.execute('ALTER TABLE textos_rapidos ADD COLUMN atualizado_em TIMESTAMP')
+        conn.execute('UPDATE textos_rapidos SET atualizado_em = criado_em WHERE atualizado_em IS NULL')
+
     conn.commit()
     conn.close()
 
@@ -1015,7 +1027,10 @@ def textos_novo():
         titulo = primeira_linha[:80]
 
         conn = get_db_connection()
-        cursor = conn.execute('INSERT INTO textos_rapidos (titulo, conteudo) VALUES (?, ?)', (titulo, conteudo))
+        cursor = conn.execute(
+            'INSERT INTO textos_rapidos (titulo, conteudo, atualizado_em) VALUES (?, ?, CURRENT_TIMESTAMP)',
+            (titulo, conteudo)
+        )
         novo_id = cursor.lastrowid
 
         salvar_anexos_pdf(conn, novo_id, request.files.getlist('anexos'))
@@ -1046,7 +1061,10 @@ def textos_editar(id):
         primeira_linha = next((l.strip() for l in conteudo.splitlines() if l.strip()), 'Texto sem título')
         titulo = primeira_linha[:80]
 
-        conn.execute('UPDATE textos_rapidos SET titulo = ?, conteudo = ? WHERE id = ?', (titulo, conteudo, id))
+        conn.execute(
+            'UPDATE textos_rapidos SET titulo = ?, conteudo = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?',
+            (titulo, conteudo, id)
+        )
 
         salvar_anexos_pdf(conn, id, request.files.getlist('anexos'))
 
@@ -1085,6 +1103,18 @@ def api_textos_anexos(id):
     anexos = conn.execute('SELECT id, nome_original FROM textos_anexos WHERE texto_id = ? ORDER BY id', (id,)).fetchall()
     conn.close()
     return jsonify([dict(a) for a in anexos])
+
+
+@app.route('/api/textos/<int:id>/versao')
+def api_textos_versao(id):
+    """Retorna quando o texto foi editado pela última vez, usado pela página /textos/<id>
+    para avisar quando outro dispositivo edita o mesmo texto enquanto está aberto."""
+    conn = get_db_connection()
+    texto = conn.execute('SELECT atualizado_em FROM textos_rapidos WHERE id = ?', (id,)).fetchone()
+    conn.close()
+    if not texto:
+        abort(404)
+    return jsonify({'atualizado_em': texto['atualizado_em']})
 
 
 @app.route('/textos/<int:id>/anexo', methods=['POST'])

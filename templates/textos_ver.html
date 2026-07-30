@@ -210,6 +210,33 @@
       margin-bottom: 12px;
       font-size: 0.85rem;
     }
+    .aviso-edicao {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      background: rgba(246, 173, 85, 0.15);
+      border: 1px solid #f6ad55;
+      color: #fbd38d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+    }
+    .aviso-edicao button {
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      background: #f6ad55;
+      color: #1a202c;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .aviso-edicao button:hover {
+      background: #ed8936;
+    }
   </style>
 </head>
 <body>
@@ -226,6 +253,10 @@
   </div>
 
   <div class="conteudo">
+    <div id="avisoEdicao" class="aviso-edicao">
+      <span><i class="fa-solid fa-triangle-exclamation"></i> Este texto foi editado em outro dispositivo — o que está na tela não é mais a versão mais recente.</span>
+      <button type="button" onclick="location.reload()"><i class="fa-solid fa-arrows-rotate"></i> Recarregar</button>
+    </div>
     <div class="data"><i class="fa-regular fa-clock"></i> {{ texto['criado_em'] }}</div>
     <div class="caixa-texto">{{ conteudo_formatado }}</div>
 
@@ -398,6 +429,30 @@
 
     verificarAtualizacaoAnexos();
     setInterval(verificarAtualizacaoAnexos, 3000);
+  </script>
+
+  <script>
+    // Avisa quando o conteúdo do texto é editado em outro dispositivo enquanto esta página está aberta
+    const URL_API_VERSAO = '{{ url_for("api_textos_versao", id=texto["id"]) }}';
+    const ATUALIZADO_EM_INICIAL = {{ texto['atualizado_em'] | tojson }};
+    let avisoEdicaoMostrado = false;
+
+    function verificarAtualizacaoConteudo() {
+      if (avisoEdicaoMostrado) return;
+
+      fetch(URL_API_VERSAO)
+        .then(function (r) { return r.status === 404 ? null : r.json(); })
+        .then(function (dados) {
+          if (!dados) return;
+          if (dados.atualizado_em !== ATUALIZADO_EM_INICIAL) {
+            avisoEdicaoMostrado = true;
+            document.getElementById('avisoEdicao').style.display = 'flex';
+          }
+        })
+        .catch(function () {});
+    }
+
+    setInterval(verificarAtualizacaoConteudo, 3000);
   </script>
 </body>
 </html>
