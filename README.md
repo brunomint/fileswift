@@ -8,10 +8,11 @@ FileSwift é um servidor de arquivos para a sua rede local: acesse, organize e c
 - 📤 **Upload por clique ou arrastar-e-soltar**, múltiplos arquivos de uma vez
 - 📝 **Textos Rápidos** — notas com destaque automático de e-mail/CPF/CEP/valores em R$, com anexo de PDFs (várias por texto)
 - 🔄 **Atualização automática** — a galeria e as listas de textos se atualizam sozinhas quando outro dispositivo envia ou apaga algo, sem precisar recarregar a página
-- 📱 **QR Code + mDNS** (`fs.local`) — acesso rápido de qualquer celular na rede, sem digitar IP
+- 📱 **QR Code + mDNS** (`fs.local` por padrão, nome configurável por instância) — acesso rápido de qualquer celular na rede, sem digitar IP
 - 🔍 **Busca global** entre pastas e arquivos
 - 📋 Copiar, mover, apagar (individual ou em lote), criar pastas
 - 🔒 **Acesso por senha** — protegido por padrão; ninguém na rede acessa sem a senha que você define na primeira execução
+- ⚙️ **Configurações** — troque o nome mDNS a qualquer momento (útil se você roda o FileSwift em mais de um PC na mesma rede)
 - 📲 Interface adaptada pra celular (menu lateral, drag-and-drop tocável)
 
 ## 🔒 Segurança
