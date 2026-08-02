@@ -157,8 +157,13 @@ Lá dentro: `fileswift.db` (textos rápidos), `static/download/` (seus arquivos)
 
 ## 🧑‍💻 Para desenvolvedores
 
+Quer contribuir? Veja o [CONTRIBUTING.md](CONTRIBUTING.md) (setup, convenções,
+o que esperar de review) e o [CHANGELOG.md](CHANGELOG.md) (histórico de
+mudanças).
+
 - `main.py` — servidor Flask (toda a lógica de rotas, banco SQLite, autenticação)
 - `gui_launcher.py` — janela tkinter opcional (o app funciona igual sem ela, abrindo direto no navegador)
+- `gui_logica.py` — lógica da janela sem dependência de widget (checagem de porta, leitura de estatísticas, encerramento do servidor), testável sem construir a GUI
 - `templates/` — HTML (Jinja2), um arquivo por tela
 - `tests/`: suíte de testes (pytest)
 - `install.sh`, `build-deb.sh`, `fileswift.spec` + `.github/workflows/build-windows.yml` — empacotamento por plataforma
@@ -180,7 +185,7 @@ pip install -r requirements.txt -r requirements.dev.txt
 pytest
 ```
 
-Um detalhe importante do [tests/conftest.py](tests/conftest.py): importar o `main.py` está gerando efeito colaterais, pois a base de código é acoplada, cria a pasta de dados, escreve o `config.json`, abre o banco e sobe o Zeroconf, tudo no momento do import. Por isso o `conftest.py` aponta `FILESWIFT_DATA_DIR` para uma pasta temporária **antes** do import. Se você escrever um teste novo que importe o `main` por fora desse caminho, ele vai mexer nos dados reais de quem está rodando.
+Um detalhe importante do [tests/conftest.py](tests/conftest.py): importar o `main.py` sozinho não faz mais nada — pastas, `config.json`, banco e Zeroconf só são criados por `main.init_app()`, chamada explicitamente. O `conftest.py` aponta `FILESWIFT_DATA_DIR` para uma pasta temporária **antes** do import, e chama `init_app()` logo em seguida. Se você escrever um teste novo que importe o `main` por fora desse caminho (sem passar por `conftest.py`), ele vai mexer nos dados reais de quem está rodando.
 
 No CI, o workflow [Testes](.github/workflows/testes.yml) roda a suíte em todo push e pull request, em três combinações: Linux e Windows no Python 3.11, mais o piso 3.8 que o `install.sh` aceita. O build do instalador Windows depende desse workflow: se a suíte quebrar, nenhum instalador é publicado.
 
