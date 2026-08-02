@@ -1,10 +1,10 @@
 """Preparo comum dos testes.
 
-O app é monolítico, importar o main tem efeito colateral, cria pasta de dados, escreve o
-config.json, abre o banco e sobe o Zeroconf, tudo no momento do import. Por isso o
-FILESWIFT_DATA_DIR é apontado para uma pasta temporária ANTES do import, Sem isso o teste
-mexeria nos dados reais de quem está rodando. A longo prazo é importante desacoplar o
-código do app.
+Importar main não tem mais efeito colateral — pastas, config.json, banco e Zeroconf só
+são criados por main.init_app(), chamada explicitamente logo abaixo. Ainda assim,
+FILESWIFT_DATA_DIR é apontado para uma pasta temporária ANTES do import/init_app(),
+porque é essa env var que define onde tudo isso vai parar; sem isso o teste mexeria nos
+dados reais de quem está rodando.
 """
 
 import os
@@ -20,11 +20,14 @@ import pytest
 
 import main
 
+main.init_app()
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _fechar_zeroconf():
-    """O Zeroconf abre sockets no import e deixa threads vivas. Fecha no fim
-    para a suíte não travar esperando por elas."""
+    """O Zeroconf fica de pé (sockets/threads abertos) durante toda a sessão de
+    testes, aberto por init_app() acima. Fecha no fim para a suíte não travar
+    esperando por essas threads."""
     yield
     try:
         main.zeroconf.close()

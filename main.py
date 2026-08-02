@@ -28,8 +28,9 @@ app = Flask(__name__, static_folder=None)
 
 porta = 5678
 
-# Zeroconf persistente
-zeroconf = Zeroconf()
+# Zeroconf persistente — construído em init_app(), não no import (ver função
+# mais abaixo, depois que DATA_DIR/CONFIG_PATH/etc. já estão definidos).
+zeroconf = None
 servico_mdns = None  # Guardará o último serviço registrado
 ip_atual = None  # Guardará o último IP detectado
 
@@ -46,7 +47,6 @@ def _data_dir_padrao():
 
 
 DATA_DIR = os.environ.get('FILESWIFT_DATA_DIR', _data_dir_padrao())
-os.makedirs(DATA_DIR, exist_ok=True)
 
 # --- Configuração persistente (senha de acesso, chave de sessão) ---
 # Guardada em DATA_DIR (mesma pasta gravável de fileswift.db etc.), então já
@@ -82,9 +82,10 @@ def salvar_config(config):
     os.chmod(CONFIG_PATH, 0o600)
 
 
-CONFIG = carregar_config()
-app.secret_key = CONFIG['secret_key']
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+# Populado de verdade em init_app() — precisa existir aqui pra funções que
+# fecham sobre CONFIG (definir_senha, obter_mdns_nome, etc.) terem uma
+# referência de módulo válida mesmo antes de init_app() rodar.
+CONFIG = {}
 
 
 def senha_esta_configurada():
@@ -140,7 +141,6 @@ def definir_mdns_nome(nome):
 MEDIA_FOLDER = os.path.join(DATA_DIR, 'static', 'download')
 UPLOAD_FOLDER = os.path.join(MEDIA_FOLDER, 'uploads')  # pasta padrão de upload
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # garante que exista a pasta
 texto = "🚀 Acessar FileSwift"  # Texto do link
 
 
@@ -163,7 +163,6 @@ DB_PATH = os.path.join(DATA_DIR, 'fileswift.db')
 
 # Pasta onde ficam os PDFs anexados aos textos rápidos (etiquetas, notas fiscais, etc.)
 TEXTOS_ANEXOS_FOLDER = os.path.join(DATA_DIR, 'textos_anexos')
-os.makedirs(TEXTOS_ANEXOS_FOLDER, exist_ok=True)
 
 
 def get_db_connection():
@@ -206,8 +205,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-
-init_db()
 
 REGEX_EMAIL = re.compile(r'[\w.\-]+@[\w.\-]+\.\w+')
 REGEX_VALOR = re.compile(r'R\$\s?\d{1,3}(?:\.\d{3})*,\d{2}')
@@ -342,20 +339,24 @@ def registrar_acesso(ip_cliente):
         dispositivos_conectados.discard(ip)
         del ultimo_acesso_por_ip[ip]
 
+def formatar_tempo_ativo(desde, agora=None):
+    """Formata a duração entre `desde` e `agora` (padrão: agora) como HH:MM:SS.
+    Pura: não lê estado de módulo, só os argumentos recebidos."""
+    if desde is None:
+        return "00:00:00"
+    tempo_ativo = (agora or datetime.now()) - desde
+    horas = int(tempo_ativo.total_seconds() // 3600)
+    minutos = int((tempo_ativo.total_seconds() % 3600) // 60)
+    segundos = int(tempo_ativo.total_seconds() % 60)
+    return f"{horas:02d}:{minutos:02d}:{segundos:02d}"
+
+
 def obter_estatisticas_servidor():
     """Obter estatísticas do servidor"""
     global servidor_iniciado_em, dispositivos_conectados, acessos_por_dia
-    
-    # Tempo ativo
-    if servidor_iniciado_em:
-        tempo_ativo = datetime.now() - servidor_iniciado_em
-        horas = int(tempo_ativo.total_seconds() // 3600)
-        minutos = int((tempo_ativo.total_seconds() % 3600) // 60)
-        segundos = int(tempo_ativo.total_seconds() % 60)
-        tempo_ativo_str = f"{horas:02d}:{minutos:02d}:{segundos:02d}"
-    else:
-        tempo_ativo_str = "00:00:00"
-    
+
+    tempo_ativo_str = formatar_tempo_ativo(servidor_iniciado_em)
+
     # Acessos hoje
     hoje = datetime.now().strftime('%Y-%m-%d')
     acessos_hoje = acessos_por_dia.get(hoje, 0)
@@ -392,8 +393,29 @@ def gerar_link():
 
 # Pasta gravável onde o QR code é salvo (mesma lógica do DATA_DIR acima)
 QRCODE_FOLDER = os.path.join(DATA_DIR, 'static')
-os.makedirs(QRCODE_FOLDER, exist_ok=True)
 QRCODE_PATH = os.path.join(QRCODE_FOLDER, 'qrcode.png')
+
+_INICIALIZADO = False
+
+
+def init_app():
+    """Efeitos colaterais de inicialização (pastas, config.json, banco, Zeroconf).
+    Não roda mais no import — chamada explicitamente por quem for de fato servir
+    requisições (run_console_mode, FileSwiftGUI.__init__) e por quem for testar
+    (conftest.py). Idempotente: chamada repetida não faz nada."""
+    global CONFIG, zeroconf, _INICIALIZADO
+    if _INICIALIZADO:
+        return
+    os.makedirs(DATA_DIR, exist_ok=True)
+    CONFIG = carregar_config()
+    app.secret_key = CONFIG['secret_key']
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    os.makedirs(TEXTOS_ANEXOS_FOLDER, exist_ok=True)
+    init_db()
+    os.makedirs(QRCODE_FOLDER, exist_ok=True)
+    zeroconf = Zeroconf()
+    _INICIALIZADO = True
 
 
 # Função para gerar QR Code
@@ -1407,6 +1429,7 @@ def run_flask():
 
 def run_console_mode():
     """Executar em modo console (sem GUI)"""
+    init_app()
     print("🚀 FileSwift - Gerenciador de Arquivos Web")
     print("=" * 50)
     print("⏳ Iniciando servidor...")
@@ -1437,9 +1460,16 @@ def run_console_mode():
     except Exception as e:
         print(f"❌ Erro no servidor: {e}")
 
+
+@app.route('/api/stats')
+def api_stats():
+    """API para obter estatísticas do servidor"""
+    return jsonify(obter_estatisticas_servidor())
+
+
 if __name__ == '__main__':
     import sys
-    
+
     # Verificar se deve usar GUI ou console
     if len(sys.argv) > 1 and sys.argv[1] == '--console':
         run_console_mode()
@@ -1458,8 +1488,3 @@ if __name__ == '__main__':
             print(f"❌ Erro na GUI: {e}")
             print("🔄 Executando em modo console...")
             run_console_mode()
-
-@app.route('/api/stats')
-def api_stats():
-    """API para obter estatísticas do servidor"""
-    return jsonify(obter_estatisticas_servidor())
