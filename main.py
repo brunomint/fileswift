@@ -200,6 +200,12 @@ def init_db():
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS acessos_diarios (
+            data TEXT PRIMARY KEY,
+            contagem INTEGER NOT NULL DEFAULT 0
+        )
+    ''')
 
     # Migração: banco de instalação já existente pode não ter a coluna
     # atualizado_em (adicionada pra detectar edição feita em outro dispositivo).
@@ -240,8 +246,12 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'ogg',
 
 # Variáveis globais para monitoramento
 servidor_iniciado_em = None
+# "Conectado agora" é uma noção transitória por natureza — depois de reiniciar
+# o servidor não tem mesmo ninguém conectado ainda, então isso fica só em
+# memória, sem necessidade de persistir. Acessos do dia, ao contrário, é uma
+# contagem que deveria valer o dia inteiro mesmo com reinício no meio — por
+# isso mora na tabela acessos_diarios (ver registrar_acesso() mais abaixo).
 dispositivos_conectados = set()
-acessos_por_dia = defaultdict(int)
 ultimo_acesso_por_ip = {}
 
 # Rate limiting de tentativas de login (em memória, reinicia a cada boot —
@@ -323,17 +333,37 @@ def obter_nome_rede_wifi():
     except Exception as e:
         return "Erro ao detectar rede"
 
+def registrar_acesso_do_dia(hoje):
+    """Incrementa o contador de acessos de `hoje` (formato AAAA-MM-DD) no banco,
+    criando a linha se ainda não existir. Separado de registrar_acesso() pra
+    poder testar sem precisar de um IP de verdade."""
+    conn = get_db_connection()
+    conn.execute(
+        'INSERT INTO acessos_diarios (data, contagem) VALUES (?, 1) '
+        'ON CONFLICT(data) DO UPDATE SET contagem = contagem + 1',
+        (hoje,)
+    )
+    conn.commit()
+    conn.close()
+
+
+def obter_acessos_do_dia(hoje):
+    conn = get_db_connection()
+    linha = conn.execute('SELECT contagem FROM acessos_diarios WHERE data = ?', (hoje,)).fetchone()
+    conn.close()
+    return linha['contagem'] if linha else 0
+
+
 def registrar_acesso(ip_cliente):
     """Registrar acesso de um dispositivo"""
-    global dispositivos_conectados, acessos_por_dia, ultimo_acesso_por_ip
-    
+    global dispositivos_conectados, ultimo_acesso_por_ip
+
     # Adicionar IP aos dispositivos conectados
     dispositivos_conectados.add(ip_cliente)
-    
-    # Registrar acesso do dia
-    hoje = datetime.now().strftime('%Y-%m-%d')
-    acessos_por_dia[hoje] += 1
-    
+
+    # Registrar acesso do dia (persiste no banco — sobrevive a reinício no meio do dia)
+    registrar_acesso_do_dia(datetime.now().strftime('%Y-%m-%d'))
+
     # Atualizar último acesso
     ultimo_acesso_por_ip[ip_cliente] = datetime.now()
     
@@ -362,14 +392,14 @@ def formatar_tempo_ativo(desde, agora=None):
 
 def obter_estatisticas_servidor():
     """Obter estatísticas do servidor"""
-    global servidor_iniciado_em, dispositivos_conectados, acessos_por_dia
+    global servidor_iniciado_em, dispositivos_conectados
 
     tempo_ativo_str = formatar_tempo_ativo(servidor_iniciado_em)
 
-    # Acessos hoje
+    # Acessos hoje (persistido no banco, sobrevive a reinício no meio do dia)
     hoje = datetime.now().strftime('%Y-%m-%d')
-    acessos_hoje = acessos_por_dia.get(hoje, 0)
-    
+    acessos_hoje = obter_acessos_do_dia(hoje)
+
     # Nome da rede
     nome_rede = obter_nome_rede_wifi()
     
