@@ -367,19 +367,25 @@ def obter_acessos_do_dia(hoje):
     return linha['contagem'] if linha else 0
 
 
-def registrar_acesso(ip_cliente):
+def registrar_acesso(ip_cliente, contar_como_acesso=True):
     """Registrar acesso de um dispositivo"""
     global dispositivos_conectados, ultimo_acesso_por_ip
 
-    # Adicionar IP aos dispositivos conectados
-    dispositivos_conectados.add(ip_cliente)
+    # O próprio servidor "se visita" o tempo todo: a janela tkinter consulta
+    # /api/stats via localhost a cada poucos segundos, e a aba que abre sozinha
+    # no navegador ao iniciar usa o IP da própria máquina. Nenhum dos dois é um
+    # dispositivo de verdade — contar os dois só infla o número sem significar
+    # que tem mais gente usando.
+    eh_o_proprio_servidor = ip_cliente == '127.0.0.1' or (ip_atual and ip_cliente == ip_atual)
+
+    if not eh_o_proprio_servidor:
+        dispositivos_conectados.add(ip_cliente)
+        ultimo_acesso_por_ip[ip_cliente] = datetime.now()
 
     # Registrar acesso do dia (persiste no banco — sobrevive a reinício no meio do dia)
-    registrar_acesso_do_dia(datetime.now().strftime('%Y-%m-%d'))
+    if contar_como_acesso:
+        registrar_acesso_do_dia(datetime.now().strftime('%Y-%m-%d'))
 
-    # Atualizar último acesso
-    ultimo_acesso_por_ip[ip_cliente] = datetime.now()
-    
     # Limpar dispositivos inativos (mais de 5 minutos sem acesso)
     agora = datetime.now()
     dispositivos_inativos = []
@@ -1303,7 +1309,18 @@ def registrar_mdns(ip_str):
 @app.before_request
 def before_request():
     """Registrar acesso antes de cada requisição"""
-    registrar_acesso(obter_ip_cliente(request))
+    registrar_acesso(obter_ip_cliente(request), contar_como_acesso=request.endpoint not in ENDPOINTS_POLLING)
+
+
+# Endpoints de polling automático — a própria página se atualizando sozinha em
+# segundo plano (estatísticas da GUI a cada 3s, galeria/lista de textos
+# checando se algo mudou). Continuam mantendo o dispositivo como "conectado"
+# (é atividade de verdade), mas não entram no contador de "acessos hoje" — só
+# inflariam o número sem representar uma visita de verdade.
+ENDPOINTS_POLLING = {
+    'api_stats', 'api_galeria_assinatura', 'api_textos_contagem',
+    'api_textos_lista', 'api_textos_anexos', 'api_textos_versao',
+}
 
 
 # Endpoints acessíveis sem estar logado: as próprias telas de login/configuração

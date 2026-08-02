@@ -70,3 +70,92 @@ def test_obter_estatisticas_reflete_acessos_persistidos():
     stats = main.obter_estatisticas_servidor()
 
     assert stats['acessos_hoje'] == esperado
+
+
+class TestNaoContarOProprioServidorComoDispositivo:
+    """A janela tkinter consulta /api/stats via 127.0.0.1, e a aba que abre
+    sozinha no navegador usa o IP da própria máquina — nenhum dos dois é um
+    dispositivo de verdade."""
+
+    def test_localhost_nao_conta_como_dispositivo(self):
+        main.dispositivos_conectados.discard('127.0.0.1')
+
+        main.registrar_acesso('127.0.0.1')
+
+        assert '127.0.0.1' not in main.dispositivos_conectados
+
+    def test_ip_do_proprio_servidor_nao_conta_como_dispositivo(self, monkeypatch):
+        monkeypatch.setattr(main, 'ip_atual', '192.168.0.50')
+        main.dispositivos_conectados.discard('192.168.0.50')
+
+        main.registrar_acesso('192.168.0.50')
+
+        assert '192.168.0.50' not in main.dispositivos_conectados
+
+    def test_ip_diferente_continua_contando_normalmente(self, monkeypatch):
+        monkeypatch.setattr(main, 'ip_atual', '192.168.0.50')
+        main.dispositivos_conectados.discard('192.168.0.77')
+
+        main.registrar_acesso('192.168.0.77')
+
+        assert '192.168.0.77' in main.dispositivos_conectados
+        main.dispositivos_conectados.discard('192.168.0.77')
+
+    def test_sem_ip_atual_definido_nao_quebra(self, monkeypatch):
+        monkeypatch.setattr(main, 'ip_atual', None)
+        main.dispositivos_conectados.discard('192.168.0.88')
+
+        main.registrar_acesso('192.168.0.88')
+
+        assert '192.168.0.88' in main.dispositivos_conectados
+        main.dispositivos_conectados.discard('192.168.0.88')
+
+
+class TestPollingNaoContaComoAcesso:
+    """/api/stats e as demais rotas de auto-atualização não devem inflar
+    'acessos hoje' — só ações reais de página."""
+
+    def test_registrar_acesso_com_contar_como_acesso_false_nao_incrementa(self):
+        from datetime import datetime
+
+        hoje = datetime.now().strftime('%Y-%m-%d')
+        antes = main.obter_acessos_do_dia(hoje)
+
+        main.registrar_acesso('10.0.0.100', contar_como_acesso=False)
+
+        assert main.obter_acessos_do_dia(hoje) == antes
+
+    def test_endpoints_de_polling_estao_marcados(self):
+        esperado = {
+            'api_stats', 'api_galeria_assinatura', 'api_textos_contagem',
+            'api_textos_lista', 'api_textos_anexos', 'api_textos_versao',
+        }
+        assert esperado <= main.ENDPOINTS_POLLING
+
+    def test_requisicao_a_api_stats_nao_incrementa_acessos_hoje(self, cliente):
+        from datetime import datetime
+
+        hoje = datetime.now().strftime('%Y-%m-%d')
+        antes = main.obter_acessos_do_dia(hoje)
+
+        cliente.get('/api/stats')
+        cliente.get('/api/stats')
+
+        assert main.obter_acessos_do_dia(hoje) == antes
+
+    def test_requisicao_a_pagina_real_incrementa_acessos_hoje(self, cliente, com_senha):
+        from datetime import datetime
+
+        token = None
+        import re
+        html = cliente.get('/login').get_data(as_text=True)
+        m = re.search(r'name="csrf_token" value="([^"]+)"', html)
+        token = m.group(1)
+        cliente.post('/login', data={'senha': com_senha, 'csrf_token': token})
+
+        hoje = datetime.now().strftime('%Y-%m-%d')
+        antes = main.obter_acessos_do_dia(hoje)
+
+        cliente.get('/galeria/')
+
+        assert main.obter_acessos_do_dia(hoje) == antes + 1
