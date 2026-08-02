@@ -29,4 +29,9 @@ windows/Output/
 Thumbs.db
 .claude/
 
+# IDEs
+.idea/
+.vscode/
+.devcontainer/
+
 data/

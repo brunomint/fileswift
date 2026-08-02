@@ -7,7 +7,13 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  # Roda a mesma suíte do workflow de Testes. Se falhar, o build nem começa e
+  # nenhum instalador é publicado.
+  testes:
+    uses: ./.github/workflows/testes.yml
+
   build:
+    needs: testes
     runs-on: windows-latest
 
     steps:
