@@ -58,21 +58,7 @@ class TestEncerrarServidorProcesso:
 
     def test_parada_graciosa_funciona_nao_chama_lsof(self):
         flask_server = MagicMock()
-        with patch("requests.get") as get, \
-             patch("gui_logica.porta_em_uso", return_value=False), \
-             patch("subprocess.run") as run, \
-             patch("time.sleep"):
-            gui_logica.encerrar_servidor_processo(5678, flask_server)
-
-        get.assert_called_once_with("http://localhost:5678/shutdown", timeout=2)
-        flask_server.close.assert_called_once()
-        flask_server.task_dispatcher.shutdown.assert_called_once()
-        run.assert_not_called()
-
-    def test_endpoint_falha_mas_flask_server_shutdown_funciona(self):
-        flask_server = MagicMock()
-        with patch("requests.get", side_effect=requests.RequestException("offline")), \
-             patch("gui_logica.porta_em_uso", return_value=False), \
+        with patch("gui_logica.porta_em_uso", return_value=False), \
              patch("subprocess.run") as run, \
              patch("time.sleep"):
             gui_logica.encerrar_servidor_processo(5678, flask_server)
@@ -82,8 +68,7 @@ class TestEncerrarServidorProcesso:
         run.assert_not_called()
 
     def test_sem_flask_server_nao_quebra(self):
-        with patch("requests.get"), \
-             patch("gui_logica.porta_em_uso", return_value=False), \
+        with patch("gui_logica.porta_em_uso", return_value=False), \
              patch("subprocess.run") as run, \
              patch("time.sleep"):
             gui_logica.encerrar_servidor_processo(5678, flask_server=None)
@@ -91,8 +76,7 @@ class TestEncerrarServidorProcesso:
         run.assert_not_called()
 
     def test_porta_continua_ocupada_escala_pro_lsof_mas_nao_acha_nada(self):
-        with patch("requests.get"), \
-             patch("gui_logica.porta_em_uso", return_value=True), \
+        with patch("gui_logica.porta_em_uso", return_value=True), \
              patch("subprocess.run") as run, patch("os.kill") as kill, \
              patch("time.sleep"):
             run.return_value = MagicMock(stdout="")
@@ -102,8 +86,7 @@ class TestEncerrarServidorProcesso:
         kill.assert_not_called()
 
     def test_porta_continua_ocupada_lsof_acha_pid_e_mata(self):
-        with patch("requests.get"), \
-             patch("gui_logica.porta_em_uso", return_value=True), \
+        with patch("gui_logica.porta_em_uso", return_value=True), \
              patch("subprocess.run") as run, patch("os.kill") as kill, \
              patch("time.sleep"):
             run.return_value = MagicMock(stdout="12345\n")
@@ -113,8 +96,7 @@ class TestEncerrarServidorProcesso:
         assert kill.call_args[0][0] == 12345
 
     def test_lsof_indisponivel_nao_quebra(self):
-        with patch("requests.get"), \
-             patch("gui_logica.porta_em_uso", return_value=True), \
+        with patch("gui_logica.porta_em_uso", return_value=True), \
              patch("subprocess.run", side_effect=FileNotFoundError("lsof não instalado")), \
              patch("time.sleep"):
             gui_logica.encerrar_servidor_processo(5678)

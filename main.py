@@ -1,5 +1,4 @@
 from flask import Flask, send_file, request, render_template, redirect, url_for, flash, send_from_directory, abort, jsonify, session, make_response
-from werkzeug.serving import make_server
 from werkzeug.security import generate_password_hash, check_password_hash
 import waitress
 import os
@@ -1223,21 +1222,6 @@ def textos_apagar(id):
     return redirect(url_for('textos_lista'))
 
 
-# Variável global para controlar o servidor
-servidor_flask = None
-
-@app.route('/shutdown', methods=['GET', 'POST'])
-def shutdown():
-    """Endpoint para parar o servidor Flask"""
-    global servidor_flask
-    if servidor_flask:
-        servidor_flask.shutdown()
-        return jsonify({"message": "Servidor sendo encerrado..."}), 200
-    return jsonify({"message": "Servidor não encontrado"}), 404
-
-
-
-
 def registrar_mdns(ip_str):
     global servico_mdns
     ip_bytes = socket.inet_aton(ip_str)
@@ -1258,8 +1242,6 @@ def registrar_mdns(ip_str):
     zeroconf.register_service(servico_mdns)
     print(f"🔗 mDNS registrado: http://{obter_mdns_host()}:{porta}")
 
-# Removido @app.before_first_request (obsoleto no Flask 2.2+)
-# A inicialização será feita na função run_flask()
 
 @app.before_request
 def before_request():
@@ -1416,17 +1398,6 @@ def monitorar_ip_e_registrar():
             criar_qrcode_simples()
         time.sleep(5)
 
-
-def run_flask():
-    global servidor_flask, servidor_iniciado_em
-    servidor_iniciado_em = datetime.now()  # Marcar início do servidor
-    
-    # Inicialização que antes estava no before_first_request
-    registrar_mdns(obter_endereco_ip(False))
-    criar_qrcode_simples()
-    
-    servidor_flask = make_server("0.0.0.0", porta, app, threaded=True)
-    servidor_flask.serve_forever()
 
 def run_console_mode():
     """Executar em modo console (sem GUI)"""

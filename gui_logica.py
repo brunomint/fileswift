@@ -34,10 +34,9 @@ def buscar_estatisticas(porta, timeout=2.0):
 
 
 def encerrar_servidor_processo(porta, flask_server=None):
-    """Shutdown por HTTP, depois flask_server.close() (waitress: precisa também
-    encerrar o task_dispatcher pra thread do servidor terminar de verdade), depois
-    lsof+SIGTERM como último recurso — só se a porta continuar ocupada depois da
-    parada graciosa.
+    """flask_server.close() (waitress: precisa também encerrar o task_dispatcher
+    pra thread do servidor terminar de verdade), depois lsof+SIGTERM como último
+    recurso — só se a porta continuar ocupada depois da parada graciosa.
 
     Esse último recurso é perigoso: GUI e servidor rodam no mesmo processo, então
     o PID que o lsof encontra escutando a porta é o processo inteiro (a própria
@@ -45,11 +44,6 @@ def encerrar_servidor_processo(porta, flask_server=None):
     HTTP. Por isso só dispara depois de dar um tempo real pro SO liberar a porta;
     com waitress, ao contrário do servidor de desenvolvimento do Werkzeug, isso não
     é imediato."""
-    try:
-        requests.get(f"http://localhost:{porta}/shutdown", timeout=2)
-    except requests.RequestException:
-        pass
-
     if flask_server:
         try:
             flask_server.close()
