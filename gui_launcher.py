@@ -5,17 +5,14 @@ import webbrowser
 import os
 import sys
 import time
-import requests
 from PIL import Image, ImageTk
 import qrcode
-import io
-import socket
-import subprocess
-import signal
-from main import app, porta, obter_endereco_ip, criar_qrcode_simples, monitorar_ip_e_registrar, obter_mdns_host
+import gui_logica
+from main import app, porta, obter_endereco_ip, criar_qrcode_simples, monitorar_ip_e_registrar, obter_mdns_host, init_app
 
 class FileSwiftGUI:
     def __init__(self):
+        init_app()
         self.root = tk.Tk()
         self.root.title("FileSwift - Gerenciador de Arquivos Web")
         
@@ -436,13 +433,8 @@ class FileSwiftGUI:
         """Executar servidor Flask"""
         try:
             from werkzeug.serving import make_server
-            
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
-            result = sock.connect_ex(('localhost', porta))
-            sock.close()
-            
-            if result == 0:
+
+            if gui_logica.porta_em_uso(porta):
                 time.sleep(2)
             
             from main import registrar_mdns, obter_endereco_ip, criar_qrcode_simples
@@ -469,12 +461,7 @@ class FileSwiftGUI:
     def verificar_servidor(self):
         """Verificar se servidor está rodando"""
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
-            result = sock.connect_ex(('localhost', porta))
-            sock.close()
-            
-            if result == 0:
+            if gui_logica.porta_em_uso(porta):
                 self.servidor_iniciado()
             else:
                 self.root.after(2000, self.verificar_servidor)
@@ -582,12 +569,7 @@ class FileSwiftGUI:
     def _check_port_and_start(self):
         """Verificar se porta está livre e iniciar servidor"""
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
-            result = sock.connect_ex(('localhost', porta))
-            sock.close()
-            
-            if result != 0:
+            if not gui_logica.porta_em_uso(porta):
                 self.status_label.config(text="🔄 Reiniciando servidor...", 
                                        foreground=self.colors['warning'])
                 self.servidor_rodando = False
@@ -615,37 +597,7 @@ class FileSwiftGUI:
         """Parar servidor Flask de forma completa e forçada"""
         print("🛑 Encerrando FileSwift...")
         self.servidor_rodando = False
-        
-        try:
-            requests.get(f"http://localhost:{porta}/shutdown", timeout=2)
-            print("✅ Servidor parado via endpoint")
-        except:
-            print("⚠️ Endpoint shutdown não respondeu")
-        
-        if self.flask_server:
-            try:
-                self.flask_server.shutdown()
-                print("✅ Servidor Flask parado diretamente")
-            except:
-                print("⚠️ Erro ao parar servidor Flask")
-        
-        try:
-            import subprocess
-            import signal
-            result = subprocess.run(['lsof', '-ti', f':{porta}'], 
-                                  capture_output=True, text=True)
-            if result.stdout.strip():
-                pids = result.stdout.strip().split('\n')
-                for pid in pids:
-                    try:
-                        os.kill(int(pid), signal.SIGTERM)
-                        print(f"✅ Processo {pid} terminado")
-                    except:
-                        pass
-        except:
-            print("⚠️ Não foi possível matar processos da porta")
-        
-        time.sleep(1)
+        gui_logica.encerrar_servidor_processo(porta, self.flask_server)
         print("🏁 FileSwift encerrado")
     
     def sair_aplicacao(self):
@@ -659,17 +611,13 @@ class FileSwiftGUI:
         )
         if self.servidor_rodando:
             self.mdns_label.config(text=f"🔄 http://{obter_mdns_host()}:{porta}")
-            try:
-                response = requests.get(f"http://localhost:{porta}/api/stats", timeout=2)
-                if response.status_code == 200:
-                    stats = response.json()
-                    self.tempo_ativo_label.config(text=f"🌐 Ativo há: {stats['tempo_ativo']}")
-                    self.dispositivos_label.config(text=f"📱 Dispositivos: {stats['dispositivos_conectados']}")
-                    self.acessos_label.config(text=f"📈 Acessos hoje: {stats['acessos_hoje']}")
-                    self.rede_label.config(text=f"📶 Rede: {stats['nome_rede']}")
-                else:
-                    self._reset_estatisticas()
-            except:
+            stats = gui_logica.buscar_estatisticas(porta)
+            if stats:
+                self.tempo_ativo_label.config(text=f"🌐 Ativo há: {stats['tempo_ativo']}")
+                self.dispositivos_label.config(text=f"📱 Dispositivos: {stats['dispositivos_conectados']}")
+                self.acessos_label.config(text=f"📈 Acessos hoje: {stats['acessos_hoje']}")
+                self.rede_label.config(text=f"📶 Rede: {stats['nome_rede']}")
+            else:
                 self._reset_estatisticas()
         else:
             self._reset_estatisticas()
