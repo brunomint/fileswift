@@ -23,8 +23,17 @@ import hashlib
 import json
 import secrets
 from markupsafe import Markup, escape
+from flask_wtf import CSRFProtect
 
 app = Flask(__name__, static_folder=None)
+
+# Protege todo POST/PUT/PATCH/DELETE contra CSRF: sem isso, uma página maliciosa
+# aberta no mesmo navegador (com sessão do FileSwift já ativa) podia disparar
+# ações destrutivas (apagar arquivo, trocar senha) só pelo cookie de sessão viajar
+# automaticamente. O token exigido daqui pra frente não é visível/acessível a um
+# site de fora. csrf_token() fica disponível nos templates via injeção do próprio
+# Flask-WTF, sem precisar registrar nada a mais.
+csrf = CSRFProtect(app)
 
 porta = 5678
 

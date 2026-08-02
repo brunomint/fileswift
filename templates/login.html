@@ -144,6 +144,7 @@
 
     {% if modo == 'setup' %}
       <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="senha">Nova senha</label>
         <input type="password" id="senha" name="senha" minlength="4" required autofocus>
         <label for="confirmacao">Confirmar senha</label>
@@ -152,6 +153,7 @@
       </form>
     {% elif modo == 'trocar_senha' %}
       <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="senha_atual">Senha atual</label>
         <input type="password" id="senha_atual" name="senha_atual" required autofocus>
         <label for="senha">Nova senha</label>
@@ -163,6 +165,7 @@
       <a href="{{ url_for('index') }}" class="voltar"><i class="fa-solid fa-arrow-left"></i> Voltar</a>
     {% else %}
       <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
         <label for="senha">Senha</label>
         <input type="password" id="senha" name="senha" required autofocus>

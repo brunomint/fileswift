@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <link rel="icon" type="image/png" href="/static/logo.png">
   <link rel="shortcut icon" type="image/png" href="/static/logo.png">
   <link rel="apple-touch-icon" type="image/png" href="/static/logo.png">
@@ -1354,6 +1355,7 @@
     <div class="sidebar-section">
       <h2><i class="fa-solid fa-folder-plus"></i> Nova Pasta</h2>
       <form method="POST" action="{{ url_for('criar_pasta', pasta=pasta) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="text" name="nome_pasta" placeholder="Nome da pasta" required style="font-size: 12px; padding: 6px 8px;">
         <button type="submit" style="font-size: 12px; padding: 6px 10px;">Criar</button>
       </form>
@@ -1483,6 +1485,7 @@
 
     <!-- Formulário oculto para exclusão múltipla -->
     <form id="deleteMultipleForm" method="POST" action="{{ url_for('apagar_multiplos') }}" style="display: none;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="pasta_atual" value="{{ pasta }}">
     </form>
 
@@ -1537,9 +1540,10 @@
             <i class="fa-solid fa-arrows-up-down-left-right"></i> Mover para...
           </button>
 
-          <form method="POST" 
-                action="{{ url_for('apagar_pasta', pasta=(pasta ~ '/' ~ sp) if pasta else sp) }}" 
+          <form method="POST"
+                action="{{ url_for('apagar_pasta', pasta=(pasta ~ '/' ~ sp) if pasta else sp) }}"
                 onsubmit="return confirm('Tem certeza que deseja apagar a pasta {{ sp }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="apagar-btn">
               <i class="fa-solid fa-trash"></i> Apagar
             </button>
@@ -1586,9 +1590,10 @@
                 <i class="fa-solid fa-arrows-up-down-left-right"></i> Mover para...
               </button>
 
-              <form method="POST" 
-                    action="{{ url_for('apagar_arquivo', filepath=pasta ~ '/' ~ img) }}" 
+              <form method="POST"
+                    action="{{ url_for('apagar_arquivo', filepath=pasta ~ '/' ~ img) }}"
                     onsubmit="return confirm('Tem certeza que deseja apagar {{ img }}?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="apagar-btn">
                   <i class="fa-solid fa-trash"></i> Apagar
                 </button>
@@ -1637,9 +1642,10 @@
                 <i class="fa-solid fa-arrows-up-down-left-right"></i> Mover para...
               </button>
 
-              <form method="POST" 
+              <form method="POST"
                     action="{{ url_for('apagar_arquivo', filepath=pasta ~ '/' ~ vid) }}"
                     onsubmit="return confirm('Tem certeza que deseja apagar {{ vid }}?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="apagar-btn">
                   <i class="fa-solid fa-trash"></i> Apagar vídeo
                 </button>
@@ -1711,10 +1717,11 @@
               <i class="fa-solid fa-arrows-up-down-left-right"></i> Mover para...
             </button>
             
-            <form method="POST" 
+            <form method="POST"
                   action="{{ url_for('apagar_arquivo', filepath=pasta ~ '/' ~ doc) }}"
                   onsubmit="return confirm('Tem certeza que deseja apagar {{ doc }}?');">
-              <button type="submit" class="apagar-btn">      
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="apagar-btn">
                 <i class="fa-solid fa-trash"></i> Apagar Doc.
               </button>
             </form>
@@ -1957,6 +1964,11 @@ window.addEventListener('click', function() {
 </script>
 
 <script>
+  // Token CSRF pras requisições POST feitas via JS (fetch/XHR); formulários
+  // normais já levam o token num campo oculto, mas essas precisam mandar no
+  // cabeçalho.
+  const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
+
   const uploadForm = document.getElementById('uploadForm');
   const fileInput = document.getElementById('fileInput');
   const progressBar = document.getElementById('progressBar');
@@ -1992,6 +2004,7 @@ window.addEventListener('click', function() {
     const uploadUrl = '{{ url_for("upload", pasta=pasta) }}';
     console.log('🎯 URL de upload:', uploadUrl);
     xhr.open('POST', uploadUrl, true);
+    xhr.setRequestHeader('X-CSRFToken', CSRF_TOKEN);
 
     xhr.upload.onprogress = function (e) {
       if (e.lengthComputable) {
@@ -2571,14 +2584,15 @@ window.addEventListener('click', function() {
   // Sistema de mover arquivos
   let arquivoAtual = '';
   let pastaDestino = '';
-  
+
   // Sistema de copiar/colar
   let modoAtual = 'mover'; // 'mover' ou 'colar'
-  
+
   function copiarItem(filepath, nomeItem) {
     // Copiar para sessão via fetch
     fetch(`/copiar/${filepath}`, {
-      method: 'POST'
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN }
     }).then(() => {
       // Abrir modal para escolher destino
       abrirModalColar(filepath, nomeItem);
@@ -2684,6 +2698,7 @@ window.addEventListener('click', function() {
     
     fetch(url, {
       method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN },
       body: formData
     })
     .then(response => {

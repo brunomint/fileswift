@@ -7,3 +7,6 @@ requests==2.31.0
 # 3.0.0 é a última versão do waitress que roda no Python 3.8 (piso aceito pelo
 # install.sh); a partir de 3.0.1 exige 3.9+. Subir daqui derruba o teste no piso.
 waitress==3.0.0
+# Mesmo motivo: Flask-WTF 1.2.2+ e WTForms 3.2.0+ exigem Python 3.9/3.10+.
+Flask-WTF==1.2.1
+WTForms==3.1.2

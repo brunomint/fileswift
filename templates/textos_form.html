@@ -142,6 +142,7 @@
     {% endwith %}
 
     <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <textarea name="conteudo" placeholder="Cole ou digite o texto aqui..." autofocus required>{{ request.form.get('conteudo', texto['conteudo'] if texto else '') }}</textarea>
       <div class="dica">E-mails, CPF, CEP e valores em R$ serão destacados automaticamente na visualização.</div>
 

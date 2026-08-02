@@ -167,6 +167,7 @@
     </div>
 
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label for="mdns_nome">Nome na rede</label>
       <div class="prefixo-input">
         <input type="text" id="mdns_nome" name="mdns_nome" value="{{ mdns_nome }}" maxlength="63" required autofocus>
