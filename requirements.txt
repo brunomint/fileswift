@@ -4,3 +4,6 @@ zeroconf==0.131.0
 qrcode==7.4.2
 Pillow==10.0.1
 requests==2.31.0
+# 3.0.0 é a última versão do waitress que roda no Python 3.8 (piso aceito pelo
+# install.sh); a partir de 3.0.1 exige 3.9+. Subir daqui derruba o teste no piso.
+waitress==3.0.0

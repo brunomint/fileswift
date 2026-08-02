@@ -34,8 +34,17 @@ def buscar_estatisticas(porta, timeout=2.0):
 
 
 def encerrar_servidor_processo(porta, flask_server=None):
-    """Shutdown por HTTP, depois flask_server.shutdown(), depois lsof+SIGTERM
-    como último recurso."""
+    """Shutdown por HTTP, depois flask_server.close() (waitress: precisa também
+    encerrar o task_dispatcher pra thread do servidor terminar de verdade), depois
+    lsof+SIGTERM como último recurso — só se a porta continuar ocupada depois da
+    parada graciosa.
+
+    Esse último recurso é perigoso: GUI e servidor rodam no mesmo processo, então
+    o PID que o lsof encontra escutando a porta é o processo inteiro (a própria
+    janela), não só o servidor — um SIGTERM ali mata o app inteiro, não só para o
+    HTTP. Por isso só dispara depois de dar um tempo real pro SO liberar a porta;
+    com waitress, ao contrário do servidor de desenvolvimento do Werkzeug, isso não
+    é imediato."""
     try:
         requests.get(f"http://localhost:{porta}/shutdown", timeout=2)
     except requests.RequestException:
@@ -43,12 +52,18 @@ def encerrar_servidor_processo(porta, flask_server=None):
 
     if flask_server:
         try:
-            flask_server.shutdown()
+            flask_server.close()
+            flask_server.task_dispatcher.shutdown()
         except Exception:
             pass
 
+    for _ in range(10):
+        if not porta_em_uso(porta, timeout=0.3):
+            return
+        time.sleep(0.5)
+
     try:
-        resultado = subprocess.run(['lsof', '-ti', f':{porta}'], capture_output=True, text=True)
+        resultado = subprocess.run(['lsof', '-ti', f':{porta}'], capture_output=True, text=True, timeout=5)
         for pid in resultado.stdout.strip().split('\n'):
             if pid:
                 try:

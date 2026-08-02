@@ -1,6 +1,7 @@
 from flask import Flask, send_file, request, render_template, redirect, url_for, flash, send_from_directory, abort, jsonify, session, make_response
 from werkzeug.serving import make_server
 from werkzeug.security import generate_password_hash, check_password_hash
+import waitress
 import os
 import zipfile
 import io
@@ -1452,9 +1453,10 @@ def run_console_mode():
     # Abrir navegador
     webbrowser.open(url)
     
-    # Iniciar servidor Flask
+    # Iniciar servidor (waitress: werkzeug é só um servidor de desenvolvimento,
+    # não deve ser usado nem em modo --console)
     try:
-        app.run(host="0.0.0.0", port=porta, debug=False, use_reloader=False)
+        waitress.serve(app, host="0.0.0.0", port=porta)
     except KeyboardInterrupt:
         print("\n👋 FileSwift encerrado pelo usuário")
     except Exception as e:

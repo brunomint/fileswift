@@ -430,27 +430,28 @@ class FileSwiftGUI:
             self.root.after(3000, self.verificar_servidor)
     
     def run_flask_server(self):
-        """Executar servidor Flask"""
+        """Executar servidor Flask (waitress: werkzeug é só um servidor de
+        desenvolvimento, não deve ser usado pra servir de verdade)"""
         try:
-            from werkzeug.serving import make_server
+            from waitress import create_server
 
             if gui_logica.porta_em_uso(porta):
                 time.sleep(2)
-            
+
             from main import registrar_mdns, obter_endereco_ip, criar_qrcode_simples
             from datetime import datetime
             import main
             main.servidor_iniciado_em = datetime.now()
-            
-            self.flask_server = make_server("0.0.0.0", porta, app, threaded=True)
-            self.flask_server.serve_forever()
-            
+
+            self.flask_server = create_server(app, host="0.0.0.0", port=porta)
+            self.flask_server.run()
+
         except OSError as e:
             if "Address already in use" in str(e):
                 time.sleep(3)
                 try:
-                    self.flask_server = make_server("0.0.0.0", porta, app, threaded=True)
-                    self.flask_server.serve_forever()
+                    self.flask_server = create_server(app, host="0.0.0.0", port=porta)
+                    self.flask_server.run()
                 except Exception as e2:
                     self.root.after(0, lambda: self.erro_servidor(f"Porta {porta} ocupada."))
             else:
