@@ -8,7 +8,7 @@ import time
 from PIL import Image, ImageTk
 import qrcode
 import gui_logica
-from main import app, porta, obter_endereco_ip, criar_qrcode_simples, monitorar_ip_e_registrar, obter_mdns_host, init_app
+from main import app, porta, obter_endereco_ip, criar_qrcode_simples, monitorar_ip_e_registrar, obter_mdns_host, init_app, logger
 
 class FileSwiftGUI:
     def __init__(self):
@@ -596,10 +596,10 @@ class FileSwiftGUI:
     
     def parar_servidor_completo(self):
         """Parar servidor Flask de forma completa e forçada"""
-        print("🛑 Encerrando FileSwift...")
+        logger.info("🛑 Encerrando FileSwift...")
         self.servidor_rodando = False
         gui_logica.encerrar_servidor_processo(porta, self.flask_server)
-        print("🏁 FileSwift encerrado")
+        logger.info("🏁 FileSwift encerrado")
     
     def sair_aplicacao(self):
         """Sair da aplicação"""
@@ -643,7 +643,7 @@ if __name__ == "__main__":
     try:
         from PIL import Image, ImageTk
     except ImportError:
-        print("⚠️ Instalando dependência PIL...")
+        logger.warning("⚠️ Instalando dependência PIL...")
         os.system("pip install Pillow")
         from PIL import Image, ImageTk
     

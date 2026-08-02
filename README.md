@@ -138,7 +138,7 @@ Nada é gravado dentro da pasta de instalação. Tudo fica numa pasta própria, 
 | Windows | `%LOCALAPPDATA%\FileSwift\` |
 | Rodando do código-fonte | a própria pasta do projeto |
 
-Lá dentro: `fileswift.db` (textos rápidos), `static/download/` (seus arquivos), `textos_anexos/` (PDFs anexados) e `config.json` (senha e configuração — nunca é versionado no Git).
+Lá dentro: `fileswift.db` (textos rápidos), `static/download/` (seus arquivos), `textos_anexos/` (PDFs anexados), `config.json` (senha e configuração — nunca é versionado no Git) e `fileswift.log` (log rotativo, até 4 arquivos de 1 MB — útil pra mandar pra quem for te ajudar com um problema).
 
 ## 📋 Formatos suportados
 

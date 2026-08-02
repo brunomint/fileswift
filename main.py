@@ -1,6 +1,8 @@
 from flask import Flask, send_file, request, render_template, redirect, url_for, flash, send_from_directory, abort, jsonify, session, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 import waitress
+import logging
+from logging.handlers import RotatingFileHandler
 import os
 import zipfile
 import io
@@ -24,6 +26,17 @@ import json
 import secrets
 from markupsafe import Markup, escape
 from flask_wtf import CSRFProtect
+
+# Logger da aplicação — console sempre (mesmo texto de antes, sem prefixo,
+# pra não mudar a experiência de quem acompanha --console), arquivo rotativo
+# adicionado em init_app() assim que DATA_DIR é conhecido, pra dar pra pedir
+# "me manda o log" pra alguém reportando um problema.
+logger = logging.getLogger('fileswift')
+logger.setLevel(logging.INFO)
+logger.propagate = False
+_console_handler = logging.StreamHandler()
+_console_handler.setFormatter(logging.Formatter('%(message)s'))
+logger.addHandler(_console_handler)
 
 app = Flask(__name__, static_folder=None)
 
@@ -446,6 +459,11 @@ def init_app():
     if _INICIALIZADO:
         return
     os.makedirs(DATA_DIR, exist_ok=True)
+    arquivo_log = RotatingFileHandler(
+        os.path.join(DATA_DIR, 'fileswift.log'), maxBytes=1_000_000, backupCount=3, encoding='utf-8'
+    )
+    arquivo_log.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+    logger.addHandler(arquivo_log)
     CONFIG = carregar_config()
     app.secret_key = CONFIG['secret_key']
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
@@ -472,7 +490,7 @@ def criar_qrcode_simples():
     qr = qrcode.make(url)
     qr.save(QRCODE_PATH)
 
-    print(f"QR Code gerado em {QRCODE_PATH} para {url}")
+    logger.info(f"QR Code gerado em {QRCODE_PATH} para {url}")
 
 
 
@@ -487,95 +505,95 @@ def allowed_file(filename):
 @app.route('/upload/', defaults={'pasta': ''}, methods=['GET', 'POST'])
 @app.route('/upload/<path:pasta>', methods=['GET', 'POST'])
 def upload(pasta):
-    print(f"🔍 Upload iniciado - Pasta: '{pasta}', Método: {request.method}")
+    logger.info(f"🔍 Upload iniciado - Pasta: '{pasta}', Método: {request.method}")
 
     caminho_pasta = resolver_caminho_seguro(pasta)
-    print(f"📁 Caminho da pasta: {caminho_pasta}")
+    logger.info(f"📁 Caminho da pasta: {caminho_pasta}")
 
     if caminho_pasta is None or not os.path.exists(caminho_pasta):
-        print(f"❌ Pasta não existe: {caminho_pasta}")
+        logger.error(f"❌ Pasta não existe: {caminho_pasta}")
         abort(404)
 
     if request.method == 'POST':
-        print("📤 Processando POST de upload...")
+        logger.info("📤 Processando POST de upload...")
         
         # Verificar se há arquivos na requisição
-        print(f"🔍 Arquivos na requisição: {list(request.files.keys())}")
+        logger.info(f"🔍 Arquivos na requisição: {list(request.files.keys())}")
         
         if 'file' not in request.files:
-            print("❌ Nenhum campo 'file' encontrado na requisição")
+            logger.error("❌ Nenhum campo 'file' encontrado na requisição")
             flash('Nenhum arquivo enviado')
             return redirect(request.url)
 
         arquivos = request.files.getlist('file')
-        print(f"📋 {len(arquivos)} arquivo(s) recebido(s)")
+        logger.info(f"📋 {len(arquivos)} arquivo(s) recebido(s)")
 
         enviados = []
         erros = []
 
         for i, file in enumerate(arquivos):
-            print(f"📄 Processando arquivo {i+1}: '{file.filename}'")
+            logger.info(f"📄 Processando arquivo {i+1}: '{file.filename}'")
             
             if file.filename == '':
-                print(f"⚠️ Arquivo {i+1} sem nome, pulando...")
+                logger.warning(f"⚠️ Arquivo {i+1} sem nome, pulando...")
                 continue
                 
             if not allowed_file(file.filename):
                 erro = f"Arquivo '{file.filename}' não permitido"
-                print(f"❌ {erro}")
+                logger.error(f"❌ {erro}")
                 erros.append(erro)
                 continue
                 
             try:
                 filename = secure_filename(file.filename)
                 caminho_arquivo = os.path.join(caminho_pasta, filename)
-                print(f"💾 Salvando em: {caminho_arquivo}")
+                logger.info(f"💾 Salvando em: {caminho_arquivo}")
                 
                 # Verificar se a pasta tem permissão de escrita
                 if not os.access(caminho_pasta, os.W_OK):
                     erro = f"Sem permissão de escrita na pasta: {caminho_pasta}"
-                    print(f"❌ {erro}")
+                    logger.error(f"❌ {erro}")
                     erros.append(erro)
                     continue
                 
                 # Verificar se o arquivo já existe
                 if os.path.exists(caminho_arquivo):
-                    print(f"⚠️ Arquivo já existe, será sobrescrito: {filename}")
+                    logger.warning(f"⚠️ Arquivo já existe, será sobrescrito: {filename}")
                 
                 file.save(caminho_arquivo)
-                print(f"✅ Arquivo salvo com sucesso: {filename}")
+                logger.info(f"✅ Arquivo salvo com sucesso: {filename}")
                 enviados.append(filename)
                 
             except Exception as e:
                 erro = f"Erro ao salvar '{file.filename}': {str(e)}"
-                print(f"❌ {erro}")
+                logger.error(f"❌ {erro}")
                 erros.append(erro)
 
         # Preparar mensagens de resultado
         mensagens = []
         if enviados:
             msg_sucesso = f'✅ Arquivos enviados: {", ".join(enviados)}'
-            print(msg_sucesso)
+            logger.info(msg_sucesso)
             mensagens.append(msg_sucesso)
             
         if erros:
             for erro in erros:
-                print(f"❌ {erro}")
+                logger.error(f"❌ {erro}")
                 mensagens.append(f"❌ {erro}")
         
         if not enviados and not erros:
             msg_erro = 'Nenhum arquivo válido foi enviado.'
-            print(f"⚠️ {msg_erro}")
+            logger.warning(f"⚠️ {msg_erro}")
             mensagens.append(msg_erro)
 
         # Flash todas as mensagens
         for msg in mensagens:
             flash(msg)
 
-        print(f"🔄 Redirecionando para galeria da pasta: '{pasta}'")
+        logger.info(f"🔄 Redirecionando para galeria da pasta: '{pasta}'")
         return redirect(url_for('galeria', pasta=pasta))
 
-    print("📄 Renderizando template de upload...")
+    logger.info("📄 Renderizando template de upload...")
     return render_template('upload.html', pasta=pasta)
 
 
@@ -594,7 +612,7 @@ def static_qrcode():
 @app.route('/')
 def index():
     link = gerar_link()
-    print(f"Link gerado: {link}")
+    logger.info(f"Link gerado: {link}")
     return render_template('index.html', link=link, mdns_dominio=obter_mdns_host(), porta=porta)
 
 @app.route('/test-upload')
@@ -953,7 +971,7 @@ def listar_pastas():
         return jsonify(pastas_ordenadas)
         
     except Exception as e:
-        print(f"Erro ao listar pastas: {e}")
+        logger.error(f"Erro ao listar pastas: {e}")
         return jsonify([{'nome': 'Raiz', 'caminho': '', 'nivel': -1}]), 500
 
 
@@ -1268,7 +1286,7 @@ def registrar_mdns(ip_str):
         try:
             zeroconf.unregister_service(servico_mdns)
         except Exception as e:
-            print(f"⚠️ Erro ao remover mDNS antigo: {e}")
+            logger.warning(f"⚠️ Erro ao remover mDNS antigo: {e}")
     dominio = obter_mdns_dominio()
     servico_mdns = ServiceInfo(
         "_http._tcp.local.",
@@ -1279,7 +1297,7 @@ def registrar_mdns(ip_str):
         server=dominio,
     )
     zeroconf.register_service(servico_mdns)
-    print(f"🔗 mDNS registrado: http://{obter_mdns_host()}:{porta}")
+    logger.info(f"🔗 mDNS registrado: http://{obter_mdns_host()}:{porta}")
 
 
 @app.before_request
@@ -1441,9 +1459,9 @@ def monitorar_ip_e_registrar():
 def run_console_mode():
     """Executar em modo console (sem GUI)"""
     init_app()
-    print("🚀 FileSwift - Gerenciador de Arquivos Web")
-    print("=" * 50)
-    print("⏳ Iniciando servidor...")
+    logger.info("🚀 FileSwift - Gerenciador de Arquivos Web")
+    logger.info("=" * 50)
+    logger.info("⏳ Iniciando servidor...")
     
     threading.Thread(target=monitorar_ip_e_registrar, daemon=True).start()
     
@@ -1453,12 +1471,12 @@ def run_console_mode():
     endereco = obter_endereco_ip(True)
     url = f"http://{endereco}"
     
-    print("✅ Servidor iniciado com sucesso!")
-    print(f"🌐 Acesse: {url}")
-    print(f"📱 QR Code: static/qrcode.png")
-    print(f"🔗 mDNS: http://{obter_mdns_host()}:{porta}")
-    print("=" * 50)
-    print("🌐 Abrindo navegador automaticamente...")
+    logger.info("✅ Servidor iniciado com sucesso!")
+    logger.info(f"🌐 Acesse: {url}")
+    logger.info(f"📱 QR Code: static/qrcode.png")
+    logger.info(f"🔗 mDNS: http://{obter_mdns_host()}:{porta}")
+    logger.info("=" * 50)
+    logger.info("🌐 Abrindo navegador automaticamente...")
     
     # Abrir navegador
     webbrowser.open(url)
@@ -1468,9 +1486,9 @@ def run_console_mode():
     try:
         waitress.serve(app, host="0.0.0.0", port=porta)
     except KeyboardInterrupt:
-        print("\n👋 FileSwift encerrado pelo usuário")
+        logger.info("\n👋 FileSwift encerrado pelo usuário")
     except Exception as e:
-        print(f"❌ Erro no servidor: {e}")
+        logger.error(f"❌ Erro no servidor: {e}")
 
 
 @app.route('/api/stats')
@@ -1489,14 +1507,14 @@ if __name__ == '__main__':
         # Tentar importar GUI
         try:
             from gui_launcher import FileSwiftGUI
-            print("🚀 Iniciando FileSwift com interface gráfica...")
+            logger.info("🚀 Iniciando FileSwift com interface gráfica...")
             gui = FileSwiftGUI()
             gui.run()
         except ImportError as e:
-            print(f"⚠️  GUI não disponível ({e})")
-            print("🔄 Executando em modo console...")
+            logger.warning(f"⚠️  GUI não disponível ({e})")
+            logger.info("🔄 Executando em modo console...")
             run_console_mode()
         except Exception as e:
-            print(f"❌ Erro na GUI: {e}")
-            print("🔄 Executando em modo console...")
+            logger.error(f"❌ Erro na GUI: {e}")
+            logger.info("🔄 Executando em modo console...")
             run_console_mode()
