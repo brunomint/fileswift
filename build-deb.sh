@@ -29,7 +29,10 @@ if ! command -v dpkg-deb >/dev/null 2>&1; then
     exit 1
 fi
 
-VERSION=$(date +%Y.%m.%d)
+VERSION=$(cat VERSION)
+# Época "1:" porque as versões antigas eram numeradas por data (2026.07.25):
+# sem ela o apt acharia 1.0.0 < 2026.07.25 e trataria a atualização como downgrade.
+DEB_VERSION="1:${VERSION}"
 PKG_DIR="fileswift-deb"
 PKG_NAME="fileswift_${VERSION}_all.deb"
 
@@ -53,7 +56,7 @@ cp static/logo.png "$PKG_DIR/usr/share/icons/hicolor/256x256/apps/fileswift.png"
 log "Gerando DEBIAN/control..."
 cat > "$PKG_DIR/DEBIAN/control" << EOF
 Package: fileswift
-Version: $VERSION
+Version: $DEB_VERSION
 Section: utils
 Priority: optional
 Architecture: all

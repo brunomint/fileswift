@@ -6,6 +6,11 @@ AAAA-MM-DD.
 
 ## [Não lançado]
 
+## [1.0.0] - 2026-09-27
+
+Primeira versão estável. A partir daqui a numeração segue o formato
+MAIOR.MENOR.CORREÇÃO (arquivo `VERSION`), em vez da data.
+
 ### Adicionado
 - Nome mDNS configurável por instância, com tela própria em **Configurações** —
   necessário pra rodar o FileSwift em mais de uma máquina na mesma rede, já que
@@ -22,8 +27,14 @@ AAAA-MM-DD.
 - Interface gráfica (tkinter) redesenhada — contribuição de
   [@pixelcatBR](https://github.com/pixelcatBR).
 - Proteção contra CSRF (`Flask-WTF`) em todas as rotas que alteram dados.
+- Log em arquivo (`fileswift.log` na pasta de dados, rotativo, até 4 arquivos
+  de 1 MB) — útil pra mandar pra quem for ajudar com um problema.
 
 ### Corrigido
+- Janela da GUI cortada em telas de resolução menor (os botões Parar/
+  Reiniciar/Sair sumiam).
+- Estatísticas de acesso infladas: o próprio servidor e as consultas
+  automáticas (polling) da GUI e das páginas deixaram de contar como acesso.
 - Vulnerabilidade de path traversal em rotas de arquivo (upload, apagar, mover,
   copiar, criar pasta) — reportada por
   [@RomuloPBenedetti](https://github.com/RomuloPBenedetti).
@@ -42,6 +53,9 @@ AAAA-MM-DD.
 - Lógica sem dependência de widget do `gui_launcher.py` (checagem de porta,
   leitura de estatísticas, encerramento do servidor) extraída pra
   `gui_logica.py`, testável sem construir a janela.
+- "Acessos hoje" passou a ser guardado no SQLite, então não zera mais se o
+  servidor for reiniciado no meio do dia.
+- Mensagens do servidor passaram de `print()` para `logging` estruturado.
 - Removido código morto: `run_flask()` e a rota `/shutdown`, que nunca eram
   usados pelo fluxo real da aplicação.
 
