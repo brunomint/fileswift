@@ -1,0 +1,46 @@
+# FileSwift para CasaOS: no painel, App Store → "+" (Custom Install) →
+# Import, e cole este arquivo. Os dados (arquivos, textos e senha) ficam em
+# /DATA/AppData/fileswift. Depois de instalar, abra http://<ip>:5678 e
+# defina a senha.
+name: fileswift
+services:
+  fileswift:
+    container_name: fileswift
+    image: ghcr.io/brunomint/fileswift:latest
+    # host: o fs.local (mDNS) e o QR Code funcionam na rede de casa
+    network_mode: host
+    environment:
+      FILESWIFT_DATA_DIR: /data
+    volumes:
+      - type: bind
+        source: /DATA/AppData/fileswift
+        target: /data
+        bind:
+          create_host_path: true
+    restart: unless-stopped
+    x-casaos:
+      volumes:
+        - container: /data
+          description:
+            en_us: Files, quick texts and settings
+            pt_br: Arquivos, textos rápidos e configurações
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: fileswift
+  author: brunomint
+  developer: brunomint
+  category: Utilities
+  icon: https://raw.githubusercontent.com/brunomint/fileswift/main/static/logo.png
+  tagline:
+    en_us: Local network file server, right in the browser
+    pt_br: Servidor de arquivos para a rede local, pelo navegador
+  description:
+    en_us: Access, organize and share photos, videos and documents from any device on your Wi-Fi, through the browser. No cloud, no app to install.
+    pt_br: Acesse, organize e compartilhe fotos, vídeos e documentos de qualquer aparelho do seu Wi-Fi, pelo navegador. Sem nuvem e sem instalar app.
+  title:
+    en_us: FileSwift
+  index: /
+  port_map: "5678"

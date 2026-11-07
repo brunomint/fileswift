@@ -1,0 +1,85 @@
+name: Docker Image
+
+# Publica a imagem pronta em ghcr.io/brunomint/fileswift, para quem usa
+# Docker, CasaOS, Portainer ou Umbrel não precisar montar nada. Duas
+# arquiteturas: amd64 (PC/servidor) e arm64 (Raspberry Pi 4/5).
+#
+# - Push no main: publica as tags latest e <commit curto>.
+# - Botão "Run workflow" (aba Actions): publica de novo.
+#
+# Antes de publicar, a imagem amd64 sobe de verdade e tem que responder
+# na porta 5678: imagem que não abre não vai pro ar.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+
+permissions:
+  contents: read
+  packages: write  # publicar no ghcr.io
+
+env:
+  IMAGEM: ghcr.io/brunomint/fileswift
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Montar a imagem (amd64) para testar
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: prod
+          platforms: linux/amd64
+          load: true
+          tags: fileswift-teste
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Testar a imagem
+        run: |
+          docker run -d --name teste -p 5678:5678 -e FILESWIFT_DATA_DIR=/data fileswift-teste
+          for i in $(seq 1 45); do
+            codigo="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5678/ || true)"
+            if [ "$codigo" = "200" ] || [ "$codigo" = "302" ]; then
+              echo "FileSwift respondeu em ${i}x2 s"
+              docker rm -f teste
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs teste
+          exit 1
+
+      - name: Entrar no ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar (amd64 + arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: prod
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGEM }}:latest
+            ${{ env.IMAGEM }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/brunomint/fileswift
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

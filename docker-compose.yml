@@ -1,6 +1,9 @@
 services:
   fileswift:
     container_name: fileswift
+    # Imagem pronta (.github/workflows/docker.yml): `docker compose up -d`
+    # baixa e roda. Para rodar o código desta pasta: docker compose up -d --build
+    image: ghcr.io/brunomint/fileswift:latest
     build:
       context: .
       dockerfile: Dockerfile

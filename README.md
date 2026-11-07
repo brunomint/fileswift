@@ -1,5 +1,7 @@
 # 🚀 FileSwift
 
+🇺🇸 [English](README.en.md)
+
 FileSwift é um servidor de arquivos para a sua rede local: acesse, organize e compartilhe fotos, vídeos e documentos pelo navegador, de qualquer dispositivo conectado ao mesmo Wi-Fi — sem depender de nuvem, sem instalar app nenhum no celular. Vem também com **Textos Rápidos**, um bloco de notas com suporte a anexar PDFs (etiquetas dos Correios, notas fiscais, etc.), pensado pra quem cola confirmações de pedido o dia inteiro.
 
 ## ✨ Funcionalidades
@@ -24,7 +26,7 @@ Pontos importantes sobre o modelo de segurança atual:
 - Sessão dura 30 dias por dispositivo (prioriza não pedir senha toda hora).
 - 5 tentativas erradas de senha bloqueiam temporariamente o IP por alguns minutos.
 - **Esqueceu a senha?** Apague o arquivo `config.json` da pasta de dados (veja "Onde ficam os dados" abaixo) e reinicie — o app volta a pedir pra definir uma senha nova.
-- Não tem proteção contra CSRF nem é recomendado expor esse servidor diretamente pra internet (fora da sua rede local).
+- Tem proteção contra CSRF em todos os formulários, mas não é recomendado expor esse servidor diretamente pra internet (fora da sua rede local).
 
 ## 📦 Instalação
 
@@ -70,18 +72,21 @@ O FileSwift também pode ser executado utilizando Docker, facilitando a instala�
 
 ### Executando
 
-Clone o repositório e acesse a pasta do projeto:
+A imagem pronta (PC e Raspberry Pi 4/5, 64 bits) fica em `ghcr.io/brunomint/fileswift`. Com o [`docker-compose.yml`](docker-compose.yml) numa pasta:
 
 ```bash
-git clone https://github.com/brunomint/fileswift.git
-cd fileswift
+docker compose up -d
 ```
 
-Inicie a aplicação:
+Ou direto, sem o compose:
 
 ```bash
-docker compose up -d --build
+docker run -d --name fileswift --network host --restart unless-stopped \
+  -e FILESWIFT_DATA_DIR=/data -v ./data:/data \
+  ghcr.io/brunomint/fileswift:latest
 ```
+
+Quem clonou o repositório e quer rodar o próprio código usa `docker compose up -d --build`.
 
 Após a inicialização, o FileSwift estará disponível em:
 
@@ -105,19 +110,44 @@ Dessa forma, atualizar ou recriar o container **não remove seus arquivos nem su
 
 ### Atualizando
 
-Após atualizar o código-fonte do projeto, execute:
-
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-O Docker reconstruirá a imagem e iniciará a versão mais recente, preservando todos os dados armazenados no diretório `data/`.
+O Docker baixa a versão mais recente e reinicia o container, preservando todos os dados armazenados no diretório `data/`. (Rodando o próprio código: `docker compose up -d --build`.)
 
 ### Parando a aplicação
 
 ```bash
 docker compose down
 ```
+
+### CasaOS
+
+No painel do CasaOS: **App Store → "+" (Custom Install) → Import** e cole o conteúdo de [`casaos/docker-compose.yml`](casaos/docker-compose.yml). Os dados ficam em `/DATA/AppData/fileswift`.
+
+### Portainer (e Umbrel)
+
+No Portainer: **Stacks → Add stack**, dê o nome `fileswift` e cole no editor:
+
+```yaml
+services:
+  fileswift:
+    image: ghcr.io/brunomint/fileswift:latest
+    network_mode: host
+    environment:
+      FILESWIFT_DATA_DIR: /data
+    volumes:
+      - fileswift-data:/data
+    restart: unless-stopped
+volumes:
+  fileswift-data:
+```
+
+No Umbrel, instale o Portainer pela loja de apps e siga o mesmo caminho (dica do pessoal do fórum Diolinux).
+
+Em todos os casos o FileSwift usa a rede do próprio servidor (`network_mode: host`), para o `fs.local` e o QR Code funcionarem: abra `http://<ip-do-servidor>:5678`. A porta 5678 precisa estar livre.
 
 ## 🌐 Como acessar
 
