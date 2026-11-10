@@ -6,12 +6,18 @@ AAAA-MM-DD.
 
 ## [Não lançado]
 
-## [1.0.0] - 2026-09-27
+## [1.0.0] - 2026-11-10
 
 Primeira versão estável. A partir daqui a numeração segue o formato
 MAIOR.MENOR.CORREÇÃO (arquivo `VERSION`), em vez da data.
 
 ### Adicionado
+- Imagem Docker pronta no GitHub Container Registry
+  (`ghcr.io/brunomint/fileswift`), gerada a cada push, e instruções para
+  CasaOS, Portainer e Umbrel.
+- README em inglês (`README.en.md`).
+- Convite para contar como usa o FileSwift: seção no README e link no rodapé
+  da tela, apontando para as Discussions do GitHub.
 - Nome mDNS configurável por instância, com tela própria em **Configurações** —
   necessário pra rodar o FileSwift em mais de uma máquina na mesma rede, já que
   duas instâncias não podem anunciar o mesmo nome mDNS.
