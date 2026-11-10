@@ -217,6 +217,21 @@
       line-height: 1.5;
     }
 
+    /* "Deixe uma estrela / conte como você usa": link de texto, sem o
+       estilo de botão dos outros <a> da página */
+    footer a {
+      display: inline;
+      width: auto;
+      margin: 0;
+      padding: 0;
+      font-size: inherit;
+      color: inherit;
+      background: none;
+      border: none;
+      box-shadow: none;
+      text-decoration: underline;
+    }
+
     /* Container central e seções */
     .container {
       max-width: 980px;
@@ -401,7 +416,9 @@
     </div>
 
     <footer style="text-align: center; margin-top: 1.5rem; padding: 1rem; font-size: 0.9rem; color: #666;">
-      Desenvolvido por Bruno Fragoso em 2025<br>FileSwift v1.0
+      Desenvolvido por Bruno Fragoso em 2025<br>FileSwift v1.0<br>
+      Gostou? <a href="https://github.com/brunomint/fileswift" target="_blank" rel="noopener">Deixe uma estrela</a>
+      ou <a href="https://github.com/brunomint/fileswift/discussions/categories/show-and-tell" target="_blank" rel="noopener">conte como você usa</a>
     </footer>
   </div>
 

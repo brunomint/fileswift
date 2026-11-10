@@ -219,6 +219,12 @@ Um detalhe importante do [tests/conftest.py](tests/conftest.py): importar o `mai
 
 No CI, o workflow [Testes](.github/workflows/testes.yml) roda a suíte em todo push e pull request, em três combinações: Linux e Windows no Python 3.11, mais o piso 3.8 que o `install.sh` aceita. O build do instalador Windows depende desse workflow: se a suíte quebrar, nenhum instalador é publicado.
 
+## 🙋 Quem usa o FileSwift?
+
+Usa o FileSwift em casa, na escola, numa clínica, no escritório ou na igreja? Eu adoraria saber! Conte em poucas palavras onde e pra quê, na conversa [**Mostre como você usa**](https://github.com/brunomint/fileswift/discussions/categories/show-and-tell). Não precisa ser nada elaborado: "uso pra passar as fotos do celular pro PC" já ajuda muito a entender pra onde levar o projeto.
+
+O FileSwift não coleta nenhum dado de uso — essa é a única forma de eu saber que ele está sendo útil.
+
 ## 📄 Licença
 
 MIT — veja o arquivo [LICENSE](LICENSE).
